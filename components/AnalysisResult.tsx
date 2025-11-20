@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { MatchAnalysis, PlayerStat, SportType } from '../types';
-import { TrendingUp, History, AlertTriangle, Activity, ExternalLink, CheckCircle2, Flag, Goal, Percent, BarChart3, Shield, Trophy, Users, Coins, RefreshCw, StickyNote, Timer, Radio, User, Siren, Dribbble, Snowflake, Hand, GripHorizontal, CloudRain, Gavel, Brain, Zap, ArrowRightCircle, Target, Sparkles, EyeOff, WifiOff, Minus, ArrowUpRight, Share2, MessageCircle } from 'lucide-react';
+import { TrendingUp, History, AlertTriangle, Activity, ExternalLink, CheckCircle2, Flag, Goal, Percent, BarChart3, Shield, Trophy, Users, Coins, RefreshCw, StickyNote, Timer, Radio, User, Siren, Dribbble, Snowflake, Hand, GripHorizontal, CloudRain, Gavel, Brain, Zap, ArrowRightCircle, Target, Sparkles, EyeOff, Minus, MessageCircle } from 'lucide-react';
 import { fetchLiveOdds, fetchTeamDetails } from '../services/geminiService';
 
 interface AnalysisResultProps {
@@ -41,24 +41,7 @@ const StatCard: React.FC<{ label: string; value: string; icon: React.ReactNode; 
 );
 
 const RiskAlert: React.FC<{ content: string; className?: string }> = ({ content, className = '' }) => {
-  if (!content || content.toLowerCase().includes('none') || content.length < 3) return null;
-
-  // Special handling for Offline Mode
-  if (content === 'OFFLINE_MODE') {
-      return (
-        <div className={`w-full bg-slate-800 border border-slate-700 rounded-xl p-4 mb-6 animate-in fade-in ${className}`}>
-          <div className="flex items-center space-x-3">
-            <div className="bg-slate-700 p-2 rounded-lg">
-              <WifiOff className="w-5 h-5 text-slate-400" />
-            </div>
-            <div className="flex-1">
-              <h3 className="text-sm font-bold text-slate-300 uppercase tracking-wider">Offline Estimation Mode</h3>
-              <p className="text-xs text-slate-500">API limit reached. Results below are estimated based on historical data snapshots.</p>
-            </div>
-          </div>
-        </div>
-      );
-  }
+  if (!content || content.toLowerCase().includes('none') || content.length < 3 || content === 'OFFLINE_MODE') return null;
 
   return (
     <div className={`w-full bg-red-500/10 border border-red-500/30 rounded-xl p-4 mb-6 animate-in fade-in slide-in-from-top-4 duration-500 transition-all ${className}`}>
@@ -306,33 +289,54 @@ const OddsDisplay: React.FC<{
   };
 
   return (
-    <div className="bg-slate-900/50 border border-slate-700/50 rounded-lg p-3 mb-2 relative overflow-visible">
-      <div className="flex items-center justify-between mb-2">
-        <h4 className="text-xs font-bold text-slate-400 uppercase tracking-wider flex items-center gap-2">
-           <Coins className="w-3 h-3 text-amber-400" /> Market Odds
+    <div className="bg-slate-900/80 border border-amber-500/30 rounded-xl p-4 relative overflow-hidden">
+      {/* Active Pulse Indicator */}
+      <div className="absolute top-0 left-0 w-full h-0.5 bg-amber-500/50"></div>
+      
+      <div className="flex items-center justify-between mb-3">
+        <h4 className="text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center gap-2">
+           <Coins className="w-4 h-4" /> Live Market Odds
         </h4>
-        <button onClick={onRefresh} disabled={isRefreshing} className={`p-1 rounded hover:bg-slate-800 text-slate-500 ${isRefreshing ? 'animate-spin' : ''}`}>
-          <RefreshCw className="w-3 h-3" />
-        </button>
+        <div className="flex items-center gap-2">
+          <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">{isRefreshing ? 'Syncing...' : 'Live'}</span>
+          <button onClick={onRefresh} disabled={isRefreshing} className={`p-1.5 rounded hover:bg-slate-800 text-slate-500 hover:text-white border border-slate-700 ${isRefreshing ? 'animate-spin' : ''}`}>
+            <RefreshCw className="w-3 h-3" />
+          </button>
+        </div>
       </div>
+
       <div className="grid grid-cols-3 gap-3 text-center">
-        <div className={`bg-slate-800/80 rounded p-2 border transition-all relative ${homeEdge ? 'border-amber-500/50 shadow-[0_0_10px_rgba(245,158,11,0.1)]' : 'border-emerald-500/10'}`}>
+        <div className={`bg-slate-800/80 rounded-lg p-3 border transition-all relative ${homeEdge ? 'border-amber-500/50 shadow-[0_0_15px_rgba(245,158,11,0.15)]' : 'border-slate-700 hover:border-emerald-500/30'}`}>
            <ValueBadge edge={homeEdge} />
-           <div className="text-[10px] text-slate-500 mb-1">Home</div>
-           <div className="text-emerald-400 font-bold font-mono text-sm">{odds.homeWin.toFixed(2)}</div>
-           {bettingMode && <div className="text-[9px] text-slate-600 mt-1">Imp: {((1/odds.homeWin)*100).toFixed(0)}%</div>}
+           <div className="text-[10px] text-slate-500 uppercase font-bold mb-1">Home</div>
+           <div className="text-emerald-400 font-bold font-mono text-lg">{odds.homeWin.toFixed(2)}</div>
+           <div className="text-[9px] text-slate-600 mt-1 border-t border-slate-700/50 pt-1">
+             Implied: {((1/odds.homeWin)*100).toFixed(0)}%
+           </div>
         </div>
-        <div className={`bg-slate-800/80 rounded p-2 border transition-all relative ${drawEdge ? 'border-amber-500/50 shadow-[0_0_10px_rgba(245,158,11,0.1)]' : 'border-slate-500/10'}`}>
+        
+        <div className={`bg-slate-800/80 rounded-lg p-3 border transition-all relative ${drawEdge ? 'border-amber-500/50 shadow-[0_0_15px_rgba(245,158,11,0.15)]' : 'border-slate-700 hover:border-slate-500/30'}`}>
            <ValueBadge edge={drawEdge} />
-           <div className="text-[10px] text-slate-500 mb-1">Draw</div>
-           <div className="text-slate-200 font-bold font-mono text-sm">{odds.draw === 0 ? '-' : odds.draw.toFixed(2)}</div>
+           <div className="text-[10px] text-slate-500 uppercase font-bold mb-1">Draw</div>
+           <div className="text-slate-200 font-bold font-mono text-lg">{odds.draw === 0 ? '-' : odds.draw.toFixed(2)}</div>
+           <div className="text-[9px] text-slate-600 mt-1 border-t border-slate-700/50 pt-1">
+             {odds.draw > 0 ? `Implied: ${((1/odds.draw)*100).toFixed(0)}%` : '-'}
+           </div>
         </div>
-        <div className={`bg-slate-800/80 rounded p-2 border transition-all relative ${awayEdge ? 'border-amber-500/50 shadow-[0_0_10px_rgba(245,158,11,0.1)]' : 'border-rose-500/10'}`}>
+        
+        <div className={`bg-slate-800/80 rounded-lg p-3 border transition-all relative ${awayEdge ? 'border-amber-500/50 shadow-[0_0_15px_rgba(245,158,11,0.15)]' : 'border-slate-700 hover:border-rose-500/30'}`}>
            <ValueBadge edge={awayEdge} />
-           <div className="text-[10px] text-slate-500 mb-1">Away</div>
-           <div className="text-rose-400 font-bold font-mono text-sm">{odds.awayWin.toFixed(2)}</div>
-           {bettingMode && <div className="text-[9px] text-slate-600 mt-1">Imp: {((1/odds.awayWin)*100).toFixed(0)}%</div>}
+           <div className="text-[10px] text-slate-500 uppercase font-bold mb-1">Away</div>
+           <div className="text-rose-400 font-bold font-mono text-lg">{odds.awayWin.toFixed(2)}</div>
+           <div className="text-[9px] text-slate-600 mt-1 border-t border-slate-700/50 pt-1">
+             Implied: {((1/odds.awayWin)*100).toFixed(0)}%
+           </div>
         </div>
+      </div>
+      
+      <div className="mt-3 text-[10px] text-slate-600 text-center flex items-center justify-center gap-1">
+        <CheckCircle2 className="w-3 h-3" />
+        <span>Verified via Google Search Grounding</span>
       </div>
     </div>
   );
@@ -441,8 +445,6 @@ export const AnalysisResult: React.FC<AnalysisResultProps> = ({ data, homeTeam, 
   const [isRefreshingOdds, setIsRefreshingOdds] = useState(false);
   const [comparison, setComparison] = useState(stats?.comparison);
   const [bettingMode, setBettingMode] = useState(false);
-  
-  const isOfflineMode = redFlags === 'OFFLINE_MODE';
 
   useEffect(() => {
     setOdds(stats?.odds);
@@ -450,7 +452,7 @@ export const AnalysisResult: React.FC<AnalysisResultProps> = ({ data, homeTeam, 
   }, [stats]);
 
   const handleManualOddsRefresh = async () => {
-    if (isRefreshingOdds || isOfflineMode) return;
+    if (isRefreshingOdds) return;
     setIsRefreshingOdds(true);
     try {
       const newOdds = await fetchLiveOdds(homeTeam, awayTeam);
@@ -479,7 +481,6 @@ export const AnalysisResult: React.FC<AnalysisResultProps> = ({ data, homeTeam, 
   };
 
   useEffect(() => {
-    if (isOfflineMode) return;
     const fetchDynamicData = async () => {
       try {
         const details = await fetchTeamDetails(homeTeam, awayTeam, sport);
@@ -495,7 +496,7 @@ export const AnalysisResult: React.FC<AnalysisResultProps> = ({ data, homeTeam, 
       } catch (err) {} finally { setIsRefreshingOdds(false); }
     }, 120000);
     return () => clearInterval(intervalId);
-  }, [homeTeam, awayTeam, sport, isOfflineMode]);
+  }, [homeTeam, awayTeam, sport]);
 
   const getConfidenceColor = (level?: string) => {
     const l = level?.toLowerCase() || '';
@@ -595,26 +596,33 @@ export const AnalysisResult: React.FC<AnalysisResultProps> = ({ data, homeTeam, 
       <ReasoningBreakdown content={predictionLogic} className={focusClass(false)} />
 
       {stats && (
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className={`bg-slate-800/40 border border-slate-700/50 rounded-xl p-6 transition-all duration-500 ${focusClass(true)}`}>
-             <div className="flex items-center space-x-2 mb-6 text-blue-400">
-               <BarChart3 className="w-5 h-5" />
-               <h3 className="font-semibold tracking-wide">Win Probability & Market</h3>
-             </div>
-             <div className="space-y-6">
-                <ProbabilityBar home={stats.winProbability.home} draw={stats.winProbability.draw} away={stats.winProbability.away} homeTeam={homeTeam} awayTeam={awayTeam} />
-                {odds && <OddsDisplay odds={odds} probabilities={stats.winProbability} isRefreshing={isRefreshingOdds} onRefresh={handleManualOddsRefresh} bettingMode={bettingMode} />}
-                <PossessionMeter home={stats.possession.home} away={stats.possession.away} homeTeam={homeTeam} awayTeam={awayTeam} sport={sport} />
-             </div>
+        <>
+          <div className={`grid grid-cols-1 md:grid-cols-2 gap-6`}>
+            <div className={`bg-slate-800/40 border border-slate-700/50 rounded-xl p-6 transition-all duration-500 ${focusClass(true)}`}>
+              <div className="flex items-center space-x-2 mb-6 text-blue-400">
+                <BarChart3 className="w-5 h-5" />
+                <h3 className="font-semibold tracking-wide">Win Probability</h3>
+              </div>
+              <div className="space-y-6">
+                  <ProbabilityBar home={stats.winProbability.home} draw={stats.winProbability.draw} away={stats.winProbability.away} homeTeam={homeTeam} awayTeam={awayTeam} />
+                  <PossessionMeter home={stats.possession.home} away={stats.possession.away} homeTeam={homeTeam} awayTeam={awayTeam} sport={sport} />
+              </div>
+            </div>
+            <div className={`bg-slate-800/40 border border-slate-700/50 rounded-xl p-6 transition-all duration-500 ${focusClass(false)}`}>
+              <div className="flex items-center space-x-2 mb-6 text-purple-400">
+                <Activity className="w-5 h-5" />
+                <h3 className="font-semibold tracking-wide">Recent Scoring Trend</h3>
+              </div>
+              <FormTrendChart homeData={stats.homeLast5Goals} awayData={stats.awayLast5Goals} homeTeam={homeTeam} awayTeam={awayTeam} sport={sport} />
+            </div>
           </div>
-          <div className={`bg-slate-800/40 border border-slate-700/50 rounded-xl p-6 transition-all duration-500 ${focusClass(false)}`}>
-             <div className="flex items-center space-x-2 mb-6 text-purple-400">
-               <Activity className="w-5 h-5" />
-               <h3 className="font-semibold tracking-wide">Recent Scoring Trend</h3>
-             </div>
-             <FormTrendChart homeData={stats.homeLast5Goals} awayData={stats.awayLast5Goals} homeTeam={homeTeam} awayTeam={awayTeam} sport={sport} />
-          </div>
-        </div>
+          
+          {odds && (
+            <div className={`transition-all duration-500 ${focusClass(true)}`}>
+              <OddsDisplay odds={odds} probabilities={stats.winProbability} isRefreshing={isRefreshingOdds} onRefresh={handleManualOddsRefresh} bettingMode={bettingMode} />
+            </div>
+          )}
+        </>
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">

@@ -5,27 +5,13 @@ import { AnalysisResult } from './components/AnalysisResult';
 import { MatchList } from './components/MatchList';
 import { analyzeMatch, fetchTodaysMatches } from './services/geminiService';
 import { MatchAnalysis, MatchFixture, LoadingState, SportType } from './types';
-import { Radar, RefreshCw, WifiOff } from 'lucide-react';
+import { Radar, RefreshCw } from 'lucide-react';
 
 const App: React.FC = () => {
   const [loadingState, setLoadingState] = useState<LoadingState>(LoadingState.IDLE);
   const [analysisData, setAnalysisData] = useState<MatchAnalysis | null>(null);
   const [teams, setTeams] = useState<{home: string, away: string, league: string}>({ home: '', away: '', league: '' });
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
-  
-  // Connectivity State
-  const [isOnline, setIsOnline] = useState<boolean>(typeof navigator !== 'undefined' ? navigator.onLine : true);
-
-  useEffect(() => {
-    const handleOnline = () => setIsOnline(true);
-    const handleOffline = () => setIsOnline(false);
-    window.addEventListener('online', handleOnline);
-    window.addEventListener('offline', handleOffline);
-    return () => {
-      window.removeEventListener('online', handleOnline);
-      window.removeEventListener('offline', handleOffline);
-    };
-  }, []);
   
   // Sport State
   const [currentSport, setCurrentSport] = useState<SportType>('SOCCER');
@@ -50,6 +36,7 @@ const App: React.FC = () => {
       setTodaysMatches(matches);
     } catch (e) {
       console.error("Error fetching matches", e);
+      setTodaysMatches([]);
     } finally {
       setLoadingMatches(false);
     }
@@ -57,7 +44,7 @@ const App: React.FC = () => {
 
   useEffect(() => {
     loadMatches();
-  }, [currentSport, matchDate, isOnline]); // Reload if connectivity changes
+  }, [currentSport, matchDate]);
 
   const handleAnalyze = async (home: string, away: string, league: string, liveState?: { score: string, time: string }) => {
     setLoadingState(LoadingState.ANALYZING);
@@ -97,16 +84,6 @@ const App: React.FC = () => {
 
       <div className="relative z-10 container mx-auto px-4 py-8 max-w-6xl">
         
-        {/* Offline Banner */}
-        {!isOnline && (
-          <div className="bg-slate-800 border border-slate-700 text-slate-300 px-4 py-3 rounded-xl mb-6 flex items-center justify-center space-x-3 shadow-lg animate-in fade-in slide-in-from-top-4">
-            <div className="bg-slate-700 p-1.5 rounded-full">
-              <WifiOff className="w-4 h-4 text-slate-400" />
-            </div>
-            <span className="text-sm font-medium">You are currently offline. The app is running in <strong>Offline Estimation Mode</strong>.</span>
-          </div>
-        )}
-
         {/* Navigation Bar */}
         <nav className="flex flex-col md:flex-row items-center justify-between mb-12 bg-slate-800/50 backdrop-blur border border-slate-700 rounded-2xl p-4 shadow-lg">
           <div className="flex items-center space-x-3 mb-4 md:mb-0">
@@ -186,7 +163,7 @@ const App: React.FC = () => {
               <div className="absolute inset-0 border-4 border-emerald-500 rounded-full border-t-transparent animate-spin"></div>
             </div>
             <p className="text-slate-400 animate-pulse font-medium">
-              {isOnline ? "Analyzing live physical data & form..." : "Generating offline strength estimation..."}
+              Analyzing live physical data & form...
             </p>
           </div>
         )}
