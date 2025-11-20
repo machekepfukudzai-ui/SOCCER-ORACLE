@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { MatchFixture, SportType } from '../types';
-import { Play, Calendar, Trophy, ArrowRight, Activity, Snowflake, Dribbble, Hand, RefreshCw, Check, Filter, X, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Play, Calendar, Trophy, ArrowRight, Activity, Snowflake, Dribbble, Hand, RefreshCw, Check, Filter, X, ChevronLeft, ChevronRight, Layers } from 'lucide-react';
 
 interface MatchListProps {
   matches: MatchFixture[];
@@ -19,6 +19,7 @@ export const MatchList: React.FC<MatchListProps> = ({ matches, onSelectMatch, on
   const [filterLeague, setFilterLeague] = useState<string>('ALL');
   const [filterStatus, setFilterStatus] = useState<string>('ALL');
   const [filterSport, setFilterSport] = useState<string>('ALL');
+  const [filterTier, setFilterTier] = useState<string>('ALL');
 
   useEffect(() => {
     if (!isLoading && showSuccess) {
@@ -81,17 +82,38 @@ export const MatchList: React.FC<MatchListProps> = ({ matches, onSelectMatch, on
       const leagueMatch = filterLeague === 'ALL' ? true : match.league === filterLeague;
       const sportMatch = filterSport === 'ALL' ? true : (match.sport || 'SOCCER') === filterSport;
 
-      return statusMatch && leagueMatch && sportMatch;
+      // Tier Classification (Lower Division keywords)
+      const lowerKeywords = [
+        'Championship', 'League One', 'League Two', 'National League',
+        'Serie B', 'Serie C', 
+        'Segunda', 'La Liga 2', 
+        '2. Bundesliga', '3. Liga', 
+        'Ligue 2', 'National',
+        'Eerste', 
+        'Superettan', 
+        '1. Lig', 
+        'Challenge League', 
+        'Liga 2', 'J2', 'K2', 'Brasileirão B'
+      ];
+      
+      const isLower = lowerKeywords.some(k => match.league && match.league.includes(k));
+      
+      let tierMatch = true;
+      if (filterTier === 'TOP') tierMatch = !isLower;
+      if (filterTier === 'LOWER') tierMatch = isLower;
+
+      return statusMatch && leagueMatch && sportMatch && tierMatch;
     });
-  }, [matches, filterStatus, filterLeague, filterSport]);
+  }, [matches, filterStatus, filterLeague, filterSport, filterTier]);
 
   const resetFilters = () => {
     setFilterLeague('ALL');
     setFilterStatus('ALL');
     setFilterSport('ALL');
+    setFilterTier('ALL');
   };
 
-  const hasActiveFilters = filterLeague !== 'ALL' || filterStatus !== 'ALL' || filterSport !== 'ALL';
+  const hasActiveFilters = filterLeague !== 'ALL' || filterStatus !== 'ALL' || filterSport !== 'ALL' || filterTier !== 'ALL';
 
   if (isLoading && matches.length === 0) {
     return (
@@ -179,6 +201,17 @@ export const MatchList: React.FC<MatchListProps> = ({ matches, onSelectMatch, on
                 {uniqueSports.map(s => (
                   <option key={s} value={s}>{s}</option>
                 ))}
+              </select>
+
+              {/* Tier / Division Filter */}
+              <select 
+                value={filterTier}
+                onChange={(e) => setFilterTier(e.target.value)}
+                className="bg-transparent text-xs text-slate-300 font-medium py-1.5 px-2 outline-none cursor-pointer hover:text-white border-r border-slate-700/50"
+              >
+                <option value="ALL">All Tiers</option>
+                <option value="TOP">Top / Major Leagues</option>
+                <option value="LOWER">Lower Divisions</option>
               </select>
 
               {/* League Filter */}

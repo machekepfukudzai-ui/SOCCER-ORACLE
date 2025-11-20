@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { MatchAnalysis, PlayerStat, SportType } from '../types';
-import { TrendingUp, History, AlertTriangle, Activity, ExternalLink, CheckCircle2, Flag, Goal, Percent, BarChart3, Shield, Trophy, Users, Coins, RefreshCw, StickyNote, Timer, Radio, User, Siren, Dribbble, Snowflake, Hand, GripHorizontal, CloudRain, Gavel, Brain, Zap, ArrowRightCircle, Target, Sparkles, EyeOff, WifiOff, Minus, ArrowUpRight } from 'lucide-react';
+import { TrendingUp, History, AlertTriangle, Activity, ExternalLink, CheckCircle2, Flag, Goal, Percent, BarChart3, Shield, Trophy, Users, Coins, RefreshCw, StickyNote, Timer, Radio, User, Siren, Dribbble, Snowflake, Hand, GripHorizontal, CloudRain, Gavel, Brain, Zap, ArrowRightCircle, Target, Sparkles, EyeOff, WifiOff, Minus, ArrowUpRight, Share2, MessageCircle } from 'lucide-react';
 import { fetchLiveOdds, fetchTeamDetails } from '../services/geminiService';
 
 interface AnalysisResultProps {
@@ -462,6 +462,22 @@ export const AnalysisResult: React.FC<AnalysisResultProps> = ({ data, homeTeam, 
     }
   };
 
+  const handleShareToWhatsApp = () => {
+    const icon = sport === 'BASKETBALL' ? '🏀' : sport === 'HOCKEY' ? '🏒' : '⚽';
+    const text = 
+      `🤖 *MatchOracle AI Prediction* 🤖%0A%0A` +
+      `${icon} *${homeTeam} vs ${awayTeam}*%0A` +
+      (liveState?.isLive ? `🔴 *LIVE:* ${liveState.currentScore} (${liveState.matchTime})%0A` : '') +
+      `🔮 *Prediction:* ${scorePrediction} ${scoreProbability ? `(${scoreProbability})` : ''}%0A` +
+      `📊 *Stats:* ${totalGoals || 'N/A'} | ${corners || 'N/A'}%0A` +
+      `🧠 *Confidence:* ${confidence}%0A%0A` +
+      `💡 *Verdict:* ${summary}%0A%0A` +
+      (liveTip ? `🔥 *Live Tip:* ${liveTip}%0A%0A` : '') +
+      `_Generated via MatchOracle AI_`;
+    
+    window.open(`https://wa.me/?text=${text}`, '_blank');
+  };
+
   useEffect(() => {
     if (isOfflineMode) return;
     const fetchDynamicData = async () => {
@@ -506,7 +522,11 @@ export const AnalysisResult: React.FC<AnalysisResultProps> = ({ data, homeTeam, 
 
   return (
     <div className="w-full max-w-5xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-12">
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-2">
+          <button onClick={handleShareToWhatsApp} className="flex items-center gap-2 px-4 py-2 rounded-full font-bold text-xs uppercase tracking-wider transition-all duration-300 bg-green-600 text-white hover:bg-green-500 border border-green-500 shadow-lg shadow-green-500/20">
+              <MessageCircle className="w-4 h-4" />
+              Share to WhatsApp
+          </button>
           <button onClick={() => setBettingMode(!bettingMode)} className={`flex items-center gap-2 px-4 py-2 rounded-full font-bold text-xs uppercase tracking-wider transition-all duration-300 ${bettingMode ? 'bg-rose-500 text-white shadow-lg shadow-rose-500/20' : 'bg-slate-800 text-slate-400 hover:bg-slate-700 border border-slate-700'}`}>
               {bettingMode ? <Target className="w-4 h-4 animate-pulse" /> : <EyeOff className="w-4 h-4" />}
               {bettingMode ? 'Betting Focus Active' : 'Highlight Betting Angles'}

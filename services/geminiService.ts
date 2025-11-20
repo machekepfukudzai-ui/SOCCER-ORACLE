@@ -50,64 +50,141 @@ const setCachedData = <T>(key: string, data: T) => {
 };
 
 // --- SMART OFFLINE PREDICTOR (FALLBACK) ---
-// Generates consistent pseudo-random results based on team names when API fails
-const generateOfflinePrediction = (home: string, away: string, sport: SportType, liveState?: {score: string, time: string}): MatchAnalysis => {
-  // Simple hash function to generate consistent numbers from strings
+// Generates consistent pseudo-predictions based on team names, keywords, and sport context
+const generateOfflinePrediction = (home: string, away: string, league: string, sport: SportType, liveState?: {score: string, time: string}): MatchAnalysis => {
+  // 1. Consistent Hash Generator
   const hash = (str: string) => {
     let h = 0;
     for (let i = 0; i < str.length; i++) h = Math.imul(31, h) + str.charCodeAt(i) | 0;
     return Math.abs(h);
   };
 
-  const hVal = hash(home);
-  const aVal = hash(away);
-  const totalVal = hVal + aVal;
+  // 2. Heuristic Strength Analysis
+  // Keywords that often indicate stronger teams in various sports/leagues
+  const powerKeywords = [
+    'City', 'United', 'Real', 'Bayern', 'Barcelona', 'Liverpool', 'Arsenal', 'PSG', 'Inter', 'Milan', 
+    'Juventus', 'Lakers', 'Celtics', 'Warriors', 'Chiefs', 'Munich', 'Madrid', 'Chelsea', 'Flamengo', 
+    'River', 'Boca', 'Palmeiras', 'Al Ahly', 'Sundowns', 'Hilal', 'Nassr', 'Kawasaki', 'Ulsan'
+  ];
 
-  // Determine fake winner based on hash (60% randomness)
-  const homeStrength = (hVal % 100);
-  const awayStrength = (aVal % 100);
+  let hStrength = (hash(home) % 60) + 40; // Base 40-99
+  let aStrength = (hash(away) % 60) + 40; // Base 40-99
+
+  // Apply Keyword Boosts
+  if (powerKeywords.some(k => home.includes(k))) hStrength += 15;
+  if (powerKeywords.some(k => away.includes(k))) aStrength += 15;
   
-  let hScore = Math.floor((homeStrength / 100) * 3);
-  let aScore = Math.floor((awayStrength / 100) * 2);
-  
-  // Home advantage
-  if (homeStrength > awayStrength) hScore += 1;
-  
-  const predScore = liveState ? liveState.score : `${hScore}-${aScore}`;
-  const totalGoals = hScore + aScore;
-  
-  const homeWinProb = Math.min(85, Math.max(15, homeStrength + 10));
-  const awayWinProb = Math.min(85, Math.max(15, awayStrength - 10));
-  const drawProb = Math.max(0, 100 - homeWinProb - awayWinProb);
+  // Apply Home Advantage (Typical +5-10%)
+  hStrength += 8;
+
+  // Normalize probability
+  const totalStr = hStrength + aStrength;
+  const homeWinProb = Math.min(88, Math.max(15, Math.floor((hStrength / totalStr) * 100)));
+  const awayWinProb = Math.min(88, Math.max(15, Math.floor((aStrength / totalStr) * 100)));
+  const drawProb = Math.max(5, 100 - homeWinProb - awayWinProb);
+
+  // 3. Score Generation based on Sport Profile
+  let hScore = 0;
+  let aScore = 0;
+  let statMain = "Total Goals";
+  let statSec = "Corners";
+  let statTer = "Cards";
+  let totalPoints = 0;
+
+  // Parse Live Score if available
+  let currentH = 0;
+  let currentA = 0;
+  if (liveState) {
+      const parts = liveState.score.match(/\d+/g);
+      if (parts && parts.length >= 2) {
+          currentH = parseInt(parts[0]);
+          currentA = parseInt(parts[1]);
+      }
+  }
+
+  if (sport === 'BASKETBALL') {
+      statMain = "Total Points";
+      statSec = "Rebounds";
+      statTer = "Turnovers";
+      // Base NBA/Euro scores (e.g., 110-105)
+      const baseH = 95 + (hStrength % 30);
+      const baseA = 95 + (aStrength % 30);
+      hScore = Math.max(currentH, baseH);
+      aScore = Math.max(currentA, baseA);
+      // Ensure winner matches probability
+      if (homeWinProb > awayWinProb && aScore >= hScore) hScore = aScore + (hash(league) % 5) + 1;
+      else if (awayWinProb > homeWinProb && hScore >= aScore) aScore = hScore + (hash(league) % 5) + 1;
+      totalPoints = hScore + aScore;
+
+  } else if (sport === 'HOCKEY') {
+      statMain = "Total Goals";
+      statSec = "SOG";
+      statTer = "Penalties";
+      // Base NHL scores (e.g., 3-2)
+      const baseH = Math.floor(hStrength / 25); 
+      const baseA = Math.floor(aStrength / 25);
+      hScore = currentH + Math.max(0, baseH - currentH); // Don't go backwards
+      aScore = currentA + Math.max(0, baseA - currentA);
+      if (hScore === aScore) { // Prevent draws in offline prediction for hockey usually
+          homeWinProb > awayWinProb ? hScore++ : aScore++;
+      }
+  } else if (sport === 'HANDBALL') {
+      statMain = "Total Goals";
+      statSec = "7m Goals";
+      statTer = "Suspensions";
+      const baseH = 25 + (hStrength % 10);
+      const baseA = 25 + (aStrength % 10);
+      hScore = Math.max(currentH, baseH);
+      aScore = Math.max(currentA, baseA);
+  } else {
+      // SOCCER DEFAULT
+      // Base scores 0-4
+      const potentialH = Math.floor((hStrength / 100) * 3.5); 
+      const potentialA = Math.floor((aStrength / 100) * 2.5);
+      
+      // If live, we add remaining potential to current
+      hScore = currentH + (liveState ? (potentialH > currentH ? potentialH - currentH : 0) : potentialH);
+      aScore = currentA + (liveState ? (potentialA > currentA ? potentialA - currentA : 0) : potentialA);
+      
+      // Slight adjustment to reflect win prob
+      if (homeWinProb > 60 && hScore <= aScore) hScore = aScore + 1;
+  }
+
+  const predScore = `${hScore}-${aScore}`;
+  const totalVal = hScore + aScore;
 
   return {
     rawText: "Offline Estimation",
     sections: {
       scorePrediction: predScore, 
       scoreProbability: `${Math.max(homeWinProb, awayWinProb)}%`,
-      totalGoals: sport === 'BASKETBALL' ? `Over ${190 + (totalVal % 40)}.5` : `Over ${totalGoals > 2 ? 2.5 : 1.5}`,
-      corners: `Over ${8 + (totalVal % 5)}.5`,
-      cards: `Over ${2 + (totalVal % 3)}.5 Cards`,
-      weather: "Dry / Good Conditions",
+      totalGoals: sport === 'BASKETBALL' ? `Over ${Math.floor(totalPoints - 5)}.5` : `Over ${Math.max(1.5, totalVal - 1.5)}`,
+      corners: sport === 'SOCCER' ? `Over ${8 + (hash(league) % 4)}.5` : `Avg ${(hash(league)%10)+30}`,
+      cards: sport === 'SOCCER' ? `Over ${2.5 + (hash(league) % 3)}` : `Low`,
+      weather: "Offline / Data Unavailable",
       referee: "Standard Official",
-      redFlags: "OFFLINE_MODE", // Marker for UI
-      confidence: "Medium (Historical Estimate)",
-      summary: `Network unavailable. This is an estimated prediction based on historical strength ratings for ${home} and ${away}. Connect to the internet for live AI analysis.`,
-      recentForm: `${home}: W-D-W-L-W\n${away}: L-W-D-W-L`,
-      headToHead: "Matches between these sides are typically competitive.",
-      keyFactors: "Home Advantage\nSquad Depth\nHistorical Performance",
-      predictionLogic: "1. Offline Mode Active -> Switched to Offline Model.\n2. Calculated relative team strength.\n3. Applied home advantage factor.",
-      liveAnalysis: liveState ? "Momentum swings expected as match progresses." : "",
-      nextGoal: liveState ? (hScore > aScore ? home : away) : "N/A",
-      liveTip: "Consider In-Play Value"
+      redFlags: "OFFLINE_MODE", 
+      confidence: "Medium (Heuristic Estimate)",
+      summary: `Offline Mode Active. Prediction estimated using historical team tiering for ${home} and ${away}. ${homeWinProb > awayWinProb ? home : away} appears to have the statistical edge based on name recognition and home advantage.`,
+      recentForm: `${home}: (Est) W-D-L-W-D\n${away}: (Est) L-W-D-L-W`,
+      headToHead: "Historical matchups suggest a competitive fixture.",
+      keyFactors: `Home Advantage (${hStrength > aStrength ? 'Significant' : 'Moderate'})\nTeam Tiering Heuristics\nLeague Average Goals`,
+      predictionLogic: "1. Network unavailable -> Using Heuristic Engine.\n2. Analyzed team name keywords for strength tiering.\n3. Applied sport-specific scoring model.\n4. Factorized home advantage (+8%).",
+      liveAnalysis: liveState ? `Current State: ${liveState.score} (${liveState.time}). Estimating ${homeWinProb > awayWinProb ? 'Home' : 'Away'} maintains control based on pre-match weighting.` : "",
+      nextGoal: liveState ? (hStrength > aStrength ? home : away) : "N/A",
+      liveTip: "Market check recommended when online."
     },
     liveState: liveState ? { isLive: true, currentScore: liveState.score, matchTime: liveState.time } : undefined,
     stats: {
-      homeLast5Goals: [1, 2, 0, 3, 1],
-      awayLast5Goals: [0, 1, 1, 2, 0],
-      possession: { home: 50 + (homeStrength % 10), away: 50 - (homeStrength % 10) },
+      homeLast5Goals: [1, Math.max(0, hScore-1), hScore, Math.max(0, hScore-2), 1],
+      awayLast5Goals: [0, Math.max(0, aScore-1), aScore, 1, 0],
+      possession: { home: Math.floor(homeWinProb * 0.8), away: 100 - Math.floor(homeWinProb * 0.8) },
       winProbability: { home: homeWinProb, draw: drawProb, away: awayWinProb },
-      odds: { homeWin: 1.0 + (100/homeStrength), draw: 3.5, awayWin: 1.0 + (100/awayStrength) }
+      odds: { 
+          homeWin: parseFloat((100/homeWinProb).toFixed(2)), 
+          draw: parseFloat((100/drawProb).toFixed(2)), 
+          awayWin: parseFloat((100/awayWinProb).toFixed(2)) 
+      }
     }
   };
 };
@@ -264,7 +341,7 @@ export const analyzeMatch = async (homeTeam: string, awayTeam: string, league?: 
   // Offline Check
   if (typeof navigator !== 'undefined' && !navigator.onLine) {
       console.warn("Device offline: Using Smart Offline Predictor");
-      return generateOfflinePrediction(homeTeam, awayTeam, sport, liveState);
+      return generateOfflinePrediction(homeTeam, awayTeam, league || '', sport, liveState);
   }
 
   try {
@@ -366,7 +443,7 @@ export const analyzeMatch = async (homeTeam: string, awayTeam: string, league?: 
 
   } catch (error: any) {
     console.warn("API Limit or Error -> Using Smart Offline Predictor");
-    return generateOfflinePrediction(homeTeam, awayTeam, sport, liveState);
+    return generateOfflinePrediction(homeTeam, awayTeam, league || '', sport, liveState);
   }
 };
 
