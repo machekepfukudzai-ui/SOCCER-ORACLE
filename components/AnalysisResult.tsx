@@ -289,7 +289,7 @@ const ProbabilityBar: React.FC<{ home: number; draw: number; away: number; homeT
   );
 };
 
-const OddsDisplay: React.FC<{ odds: { homeWin: number; draw: number; awayWin: number }, isRefreshing: boolean }> = ({ odds, isRefreshing }) => {
+const OddsDisplay: React.FC<{ odds: { homeWin: number; draw: number; awayWin: number }, isRefreshing: boolean, onRefresh: () => void }> = ({ odds, isRefreshing, onRefresh }) => {
   return (
     <div className="bg-slate-900/50 border border-slate-700/50 rounded-lg p-3 mb-2 relative overflow-hidden">
       <div className="flex items-center justify-between mb-2">
@@ -297,6 +297,14 @@ const OddsDisplay: React.FC<{ odds: { homeWin: number; draw: number; awayWin: nu
            <Coins className="w-3 h-3 text-amber-400" /> Live Market Odds
         </h4>
         <div className="flex items-center gap-2">
+          <button 
+            onClick={onRefresh} 
+            disabled={isRefreshing}
+            className={`p-1 rounded hover:bg-slate-800 text-slate-500 hover:text-emerald-400 transition-all ${isRefreshing ? 'animate-spin text-emerald-400' : ''}`}
+            title="Refresh Odds"
+          >
+            <RefreshCw className="w-3 h-3" />
+          </button>
           <span className="text-[10px] text-slate-500 bg-slate-800 px-2 py-0.5 rounded border border-slate-700">Decimal</span>
         </div>
       </div>
@@ -488,6 +496,21 @@ export const AnalysisResult: React.FC<AnalysisResultProps> = ({ data, homeTeam, 
     setOdds(stats?.odds);
     setComparison(stats?.comparison);
   }, [stats]);
+
+  const handleManualOddsRefresh = async () => {
+    if (isRefreshingOdds) return;
+    setIsRefreshingOdds(true);
+    try {
+      const newOdds = await fetchLiveOdds(homeTeam, awayTeam);
+      if (newOdds) {
+        setOdds(newOdds);
+      }
+    } catch (err) {
+      console.error("Error refreshing odds", err);
+    } finally {
+      setIsRefreshingOdds(false);
+    }
+  };
 
   // Poll for live odds and fetch details
   useEffect(() => {
@@ -697,7 +720,13 @@ export const AnalysisResult: React.FC<AnalysisResultProps> = ({ data, homeTeam, 
                   homeTeam={homeTeam}
                   awayTeam={awayTeam}
                 />
-                {odds && <OddsDisplay odds={odds} isRefreshing={isRefreshingOdds} />}
+                {odds && (
+                  <OddsDisplay 
+                    odds={odds} 
+                    isRefreshing={isRefreshingOdds} 
+                    onRefresh={handleManualOddsRefresh}
+                  />
+                )}
                 <PossessionMeter 
                   home={stats.possession.home} 
                   away={stats.possession.away} 
