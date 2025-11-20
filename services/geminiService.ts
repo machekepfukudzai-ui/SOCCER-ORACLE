@@ -242,9 +242,6 @@ export const analyzeMatch = async (homeTeam: string, awayTeam: string, league?: 
   const context = league ? `in ${league}` : '';
   const isLive = !!liveState;
 
-  // NOTE: We generally DO NOT cache the main analysis because it's the core feature 
-  // and user expects fresh AI generation. However, logic prevents re-submitting same request if UI handles it.
-
   // Sport Specific Instructions
   let sportInstructions = '';
   let outputTemplate = '';
@@ -403,9 +400,9 @@ export const analyzeMatch = async (homeTeam: string, awayTeam: string, league?: 
     REQUIRED: You MUST cite specific numbers found in search results (e.g. "xG is 1.2 vs 0.4", "Ref Avg 4.2 cards", "Rain forecasted", "5th vs 12th in table").
     Do NOT be vague.
     
-    OUTPUT FORMAT STRICTLY:
+    OUTPUT FORMAT STRICTLY (Copy these exact headers):
     ## Score Prediction
-    [Specific FINAL score]
+    [Format: X-Y]
 
     ## Score Probability
     [Percentage e.g. 65%]
@@ -413,7 +410,7 @@ export const analyzeMatch = async (homeTeam: string, awayTeam: string, league?: 
     ${outputTemplate}
     
     ## Weather
-    [Condition e.g. "Rainy, 15°C" or "N/A" (if Cyber/Indoor)]
+    [Condition e.g. "Rainy, 15°C" or "N/A"]
 
     ## Referee
     [Name & Stat e.g. "M. Oliver (4.5 Cards/Game)" or "N/A"]
@@ -530,49 +527,53 @@ const parseResponse = (text: string, groundingChunks: any[]): MatchAnalysis => {
   lines.forEach(line => {
     const trimmed = line.trim();
     if (!trimmed) return;
-    const cleanLine = trimmed.replace(/\*\*/g, '');
+    
+    // AGGRESSIVE CLEANING: Remove bolding **, markdown headers #, and leading dashes -
+    // This allows matching "Score Prediction" even if AI output "## Score Prediction" or "**Score Prediction**" or "### Score Prediction"
+    const cleanLine = trimmed.replace(/\*\*/g, '').replace(/^#+\s*/, '').replace(/^-\s*/, '').trim();
     
     const checkAndSetSection = (header: string, key: keyof MatchAnalysis['sections']): boolean => {
-      if (cleanLine.startsWith(header)) {
+      // Loose matching: Case insensitive start
+      if (cleanLine.toLowerCase().startsWith(header.toLowerCase())) {
         currentSection = key;
-        const inlineContent = cleanLine.substring(header.length).replace(/^[:\s-]+/, '').trim();
+        // Remove header from line to get inline content if exists
+        // e.g. "Score Prediction: 2-1" -> "2-1"
+        const inlineContent = cleanLine.substring(header.length).replace(/^[:\s]+/, '').trim();
         if (inlineContent) sections[key] = inlineContent;
         return true;
       }
       return false;
     };
 
-    if (checkAndSetSection('## Score Prediction', 'scorePrediction')) return;
-    if (checkAndSetSection('## Score Probability', 'scoreProbability')) return;
+    if (checkAndSetSection('Score Prediction', 'scorePrediction')) return;
+    if (checkAndSetSection('Score Probability', 'scoreProbability')) return;
     
     // MAPPINGS FOR MULTI-SPORT
-    // Primary Stat (Goals/Points)
-    if (checkAndSetSection('## Total Goals', 'totalGoals')) return;
-    if (checkAndSetSection('## Total Points', 'totalGoals')) return; 
+    if (checkAndSetSection('Total Goals', 'totalGoals')) return;
+    if (checkAndSetSection('Total Points', 'totalGoals')) return; 
 
-    // Secondary Stat (Corners/Key Stat 1)
-    if (checkAndSetSection('## Corners', 'corners')) return;
-    if (checkAndSetSection('## Key Stat', 'corners')) return; // Maps to corners field
-
-    // Tertiary Stat (Cards/Key Stat 2)
-    if (checkAndSetSection('## Cards', 'cards')) return;
-    if (checkAndSetSection('## Key Stat 2', 'cards')) return; // Maps to cards field
+    // ORDER MATTERS: Specific keys first
+    if (checkAndSetSection('Key Stat 2', 'cards')) return;
+    if (checkAndSetSection('Key Stat', 'corners')) return; 
+    if (checkAndSetSection('Corners', 'corners')) return;
+    if (checkAndSetSection('Cards', 'cards')) return;
     
-    if (checkAndSetSection('## Weather', 'weather')) return;
-    if (checkAndSetSection('## Referee', 'referee')) return;
+    if (checkAndSetSection('Weather', 'weather')) return;
+    if (checkAndSetSection('Referee', 'referee')) return;
 
-    if (checkAndSetSection('## Red Flags', 'redFlags')) return;
-    if (checkAndSetSection('## Confidence', 'confidence')) return;
-    if (checkAndSetSection('## Summary', 'summary')) return;
-    if (checkAndSetSection('## Recent Form', 'recentForm')) return;
-    if (checkAndSetSection('## Head-to-Head', 'headToHead')) return;
-    if (checkAndSetSection('## Key Factors', 'keyFactors')) return;
-    if (checkAndSetSection('## Prediction Logic', 'predictionLogic')) return;
-    if (checkAndSetSection('## Live Analysis', 'liveAnalysis')) return;
+    if (checkAndSetSection('Red Flags', 'redFlags')) return;
+    if (checkAndSetSection('Confidence', 'confidence')) return;
+    if (checkAndSetSection('Summary', 'summary')) return;
+    if (checkAndSetSection('Recent Form', 'recentForm')) return;
+    if (checkAndSetSection('Head-to-Head', 'headToHead')) return;
+    if (checkAndSetSection('Key Factors', 'keyFactors')) return;
+    if (checkAndSetSection('Prediction Logic', 'predictionLogic')) return;
+    if (checkAndSetSection('Live Analysis', 'liveAnalysis')) return;
 
-    if (cleanLine.startsWith('##')) {
-      currentSection = 'unknown';
-      return;
+    // Detect if this line looks like a new header that we missed, to reset section
+    if (trimmed.startsWith('#') || trimmed.startsWith('**')) {
+       currentSection = 'unknown';
+       return;
     }
 
     if (currentSection !== 'unknown') {
