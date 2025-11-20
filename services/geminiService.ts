@@ -61,8 +61,8 @@ export const fetchTodaysMatches = async (sport: SportType = 'SOCCER'): Promise<M
     Find a diverse and comprehensive list of ${sport} matches scheduled for today, ${today}.
     
     CRITICAL INSTRUCTIONS:
-    1. Focus specifically on major and secondary leagues for **${sport}**.
-    2. If ${sport} is SOCCER, include Cyber/Esports.
+    1. Focus specifically on major and secondary REAL WORLD leagues for **${sport}**.
+    2. **STRICTLY EXCLUDE** all Cyber, Esports, Simulated, or Virtual leagues (e.g. GT Leagues, Esoccer Battle). REAL SPORTS ONLY.
     3. If ${sport} is BASKETBALL, include NBA, EuroLeague, NCAA, or top domestic leagues.
     4. If ${sport} is HOCKEY, include NHL, KHL, SHL, etc.
     5. If ${sport} is HANDBALL, include EHF Champions League, Bundesliga, etc.
@@ -181,14 +181,11 @@ export const fetchTeamDetails = async (homeTeam: string, awayTeam: string, sport
   const ai = getAI();
   const modelId = "gemini-2.5-flash";
   
-  const isCyber = homeTeam.toLowerCase().includes('cyber') || homeTeam.toLowerCase().includes('esoccer');
-  
   let specificPrompt = "";
   if (sport === 'SOCCER') {
-    specificPrompt = isCyber ? `
-      Find stats for Cyber/Esports teams. Look for Gamer rating.
-    ` : `
+    specificPrompt = `
       Find squad market value (e.g. €500m), league position, and team strength rating (0-100).
+      Ignore Cyber/Esports data.
     `;
   } else {
     specificPrompt = `
@@ -322,36 +319,27 @@ export const analyzeMatch = async (homeTeam: string, awayTeam: string, league?: 
       break;
 
     default: // SOCCER
-      const isCyber = homeTeam.toLowerCase().includes('cyber') || homeTeam.toLowerCase().includes('esoccer');
-      if (isCyber) {
-         sportInstructions = `
-           SPORT: CYBER SOCCER / ESPORTS.
-           1. Ignore physical fatigue/weather.
-           2. Focus on Gamer/Algorithm trends and recent H2H volatility.
-           3. High scoring nature of cyber leagues.
-         `;
-      } else {
-         sportInstructions = `
-           SPORT: SOCCER.
-           
-           **SUPER LEAGUE SPECIFIC CONTEXT:**
-           - **Turkey (Süper Lig) / Greece:** EXTREME HOME ADVANTAGE. Crowd influence is huge. High card counts are common.
-           - **China / India (Super League):** Team strength relies heavily on "Foreign Star Players". Check if they are playing.
-           - **Switzerland / Denmark:** Often high-scoring leagues.
+       sportInstructions = `
+         SPORT: SOCCER (REAL WORLD ONLY).
+         **STRICTLY EXCLUDE** ALL CYBER/ESPORTS/SIMULATED LEAGUES.
+         
+         **SUPER LEAGUE SPECIFIC CONTEXT:**
+         - **Turkey (Süper Lig) / Greece:** EXTREME HOME ADVANTAGE. Crowd influence is huge. High card counts are common.
+         - **China / India (Super League):** Team strength relies heavily on "Foreign Star Players". Check if they are playing.
+         - **Switzerland / Denmark:** Often high-scoring leagues.
 
-           **MANDATORY FOR LOWER LEAGUES (African/Asian/South American 2nd Div):**
-           - If advanced stats (xG, Heatmaps) are missing, YOU MUST PREDICT based on:
-             1. **League Standings**: Position differences.
-             2. **Recent Form**: Last 5 games (W-D-L).
-             3. **Goal Difference**: Home Attack vs Away Defense.
-           - Do NOT refuse to predict due to "lack of data". Use available basic metrics.
+         **MANDATORY FOR LOWER LEAGUES (African/Asian/South American 2nd Div):**
+         - If advanced stats (xG, Heatmaps) are missing, YOU MUST PREDICT based on:
+           1. **League Standings**: Position differences.
+           2. **Recent Form**: Last 5 games (W-D-L).
+           3. **Goal Difference**: Home Attack vs Away Defense.
+         - Do NOT refuse to predict due to "lack of data". Use available basic metrics.
 
-           GRANULAR PHYSICAL FACTORS (For Major Leagues):
-           1. **Weather**: Search for forecast at stadium. Heavy rain/wind? (Affects passing/goals).
-           2. **Referee**: Identify the referee. Are they strict? (Avg Cards per game > 4.5?).
-           3. **Injuries**: CONFIRM key missing players.
-         `;
-      }
+         GRANULAR PHYSICAL FACTORS (For Major Leagues):
+         1. **Weather**: Search for forecast at stadium. Heavy rain/wind? (Affects passing/goals).
+         2. **Referee**: Identify the referee. Are they strict? (Avg Cards per game > 4.5?).
+         3. **Injuries**: CONFIRM key missing players.
+       `;
       outputTemplate = `
         ## Total Goals
         [e.g. Over 2.5]
@@ -368,20 +356,26 @@ export const analyzeMatch = async (homeTeam: string, awayTeam: string, league?: 
   let instructionPart = '';
   if (isLive) {
     instructionPart = `
-      THIS IS A LIVE MATCH.
+      THIS IS A LIVE MATCH (IN-PLAY).
       User provided Score: ${liveState.score}
       User provided Time: ${liveState.time}
       
-      CRITICAL ACCURACY TASKS:
-      1. **VERIFY LIVE DATA**: Search for the *current* live score and minute to ensure user data is accurate.
-      2. **LIVE STATS**: Find REAL-TIME stats: Possession %, Shots on Target, xG (Expected Goals), Dangerous Attacks.
-      3. **MOMENTUM**: Analyze events from the last 10-15 minutes. Who is pressuring?
-      4. **PREDICTION**: Predict the *rest of the match* outcome based on this live data.
+      CRITICAL LIVE TASKS:
+      1. **VERIFY DATA**: Check google for *current* live score and minute.
+      2. **MOMENTUM**: Analyze the last 15 mins. Who is attacking dangerously?
+      3. **NEXT GOAL**: Who is most likely to score next based on pressure?
+      4. **LIVE TIP**: Provide ONE high-value actionable betting tip for the *remainder* of the match.
       
       ${sportInstructions}
       
       ## Live Analysis
-      [Provide a tactical breakdown of the live game. Who is dominating momentum? Is a comeback likely? Who scores next?]
+      [Tactical breakdown of momentum]
+
+      ## Next Goal
+      [e.g. "Home Team likely (High Pressure)" or "None (Game Locked)"]
+
+      ## Live Tip
+      [e.g. "Bet Over 2.5 Goals now" or "Away Team to Win Rest of Match"]
     `;
   } else {
     instructionPart = `
@@ -398,7 +392,6 @@ export const analyzeMatch = async (homeTeam: string, awayTeam: string, league?: 
     
     GOAL: HIGH PRECISION PREDICTION.
     REQUIRED: You MUST cite specific numbers found in search results (e.g. "xG is 1.2 vs 0.4", "Ref Avg 4.2 cards", "Rain forecasted", "5th vs 12th in table").
-    Do NOT be vague.
     
     OUTPUT FORMAT STRICTLY (Copy these exact headers):
     ## Score Prediction
@@ -427,7 +420,7 @@ export const analyzeMatch = async (homeTeam: string, awayTeam: string, league?: 
     ## Prediction Logic
     [Step-by-step breakdown. List 3-4 key specific reasons that led to the exact score prediction. Format: "• [Factor]: [Impact] - [Specific Data Reference]"]
 
-    ${isLive ? "## Live Analysis\n[Momentum analysis and Next Goal probability]" : ""}
+    ${isLive ? `## Live Analysis\n[Momentum]\n\n## Next Goal\n[Prediction]\n\n## Live Tip\n[Actionable Tip]` : ""}
 
     ## Recent Form
     [Last 5 games summary]
@@ -508,7 +501,9 @@ const parseResponse = (text: string, groundingChunks: any[]): MatchAnalysis => {
     headToHead: '',
     keyFactors: '',
     predictionLogic: '',
-    liveAnalysis: ''
+    liveAnalysis: '',
+    nextGoal: '',
+    liveTip: ''
   };
   
   let stats: MatchAnalysis['stats'] = undefined;
@@ -568,7 +563,10 @@ const parseResponse = (text: string, groundingChunks: any[]): MatchAnalysis => {
     if (checkAndSetSection('Head-to-Head', 'headToHead')) return;
     if (checkAndSetSection('Key Factors', 'keyFactors')) return;
     if (checkAndSetSection('Prediction Logic', 'predictionLogic')) return;
+    
     if (checkAndSetSection('Live Analysis', 'liveAnalysis')) return;
+    if (checkAndSetSection('Next Goal', 'nextGoal')) return;
+    if (checkAndSetSection('Live Tip', 'liveTip')) return;
 
     // Detect if this line looks like a new header that we missed, to reset section
     if (trimmed.startsWith('#') || trimmed.startsWith('**')) {

@@ -82,6 +82,8 @@ export interface MatchAnalysis {
     keyFactors: string;
     predictionLogic?: string; // New: Step-by-step reasoning
     liveAnalysis?: string; // New: Specific live game breakdown
+    nextGoal?: string; // New: Likely next scorer or team
+    liveTip?: string; // New: Actionable live betting tip
   };
 }
 

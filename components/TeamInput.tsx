@@ -71,7 +71,7 @@ export const TeamInput: React.FC<TeamInputProps> = ({ onAnalyze, onSportChange, 
                 value={home}
                 onChange={(e) => setHome(e.target.value)}
                 className="block w-full pl-10 pr-3 py-3 bg-slate-900 border border-slate-700 rounded-xl text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500 focus:border-transparent transition-all"
-                placeholder={currentSport === 'SOCCER' ? "e.g. Man City, Real Madrid (Cyber)..." : currentSport === 'BASKETBALL' ? "e.g. Lakers, Real Madrid Baloncesto..." : "e.g. NY Rangers, PSG Handball..."}
+                placeholder={currentSport === 'SOCCER' ? "e.g. Man City, Real Madrid..." : currentSport === 'BASKETBALL' ? "e.g. Lakers, Real Madrid Baloncesto..." : "e.g. NY Rangers, PSG Handball..."}
                 required
                 disabled={disabled}
               />

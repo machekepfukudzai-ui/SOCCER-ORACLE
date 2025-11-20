@@ -3,14 +3,11 @@ import React, { useState, useEffect } from 'react';
 import { TeamInput } from './components/TeamInput';
 import { AnalysisResult } from './components/AnalysisResult';
 import { MatchList } from './components/MatchList';
-import { LoginScreen } from './components/LoginScreen';
 import { analyzeMatch, fetchTodaysMatches } from './services/geminiService';
-import { authService } from './services/authService';
-import { MatchAnalysis, MatchFixture, LoadingState, SportType, User } from './types';
-import { Radar, LogOut, User as UserIcon } from 'lucide-react';
+import { MatchAnalysis, MatchFixture, LoadingState, SportType } from './types';
+import { Radar, User as UserIcon } from 'lucide-react';
 
 const App: React.FC = () => {
-  const [user, setUser] = useState<User | null>(null);
   const [loadingState, setLoadingState] = useState<LoadingState>(LoadingState.IDLE);
   const [analysisData, setAnalysisData] = useState<MatchAnalysis | null>(null);
   const [teams, setTeams] = useState<{home: string, away: string}>({ home: '', away: '' });
@@ -23,46 +20,20 @@ const App: React.FC = () => {
   const [todaysMatches, setTodaysMatches] = useState<MatchFixture[]>([]);
   const [loadingMatches, setLoadingMatches] = useState<boolean>(true);
 
-  // Check for existing session on mount
   useEffect(() => {
-    try {
-      const storedUser = authService.getCurrentUser();
-      if (storedUser) {
-        setUser(storedUser);
+    const loadMatches = async () => {
+      setLoadingMatches(true);
+      try {
+        const matches = await fetchTodaysMatches(currentSport);
+        setTodaysMatches(matches);
+      } catch (e) {
+        console.error("Error fetching matches", e);
+      } finally {
+        setLoadingMatches(false);
       }
-    } catch (error) {
-      console.error("Failed to restore session", error);
-      authService.logout();
-    }
-  }, []);
-
-  useEffect(() => {
-    if (user) {
-      const loadMatches = async () => {
-        setLoadingMatches(true);
-        try {
-          const matches = await fetchTodaysMatches(currentSport);
-          setTodaysMatches(matches);
-        } catch (e) {
-          console.error("Error fetching matches", e);
-        } finally {
-          setLoadingMatches(false);
-        }
-      };
-      loadMatches();
-    }
-  }, [currentSport, user]);
-
-  const handleLoginSuccess = (loggedInUser: User) => {
-    setUser(loggedInUser);
-  };
-
-  const handleLogout = () => {
-    authService.logout();
-    setUser(null);
-    setAnalysisData(null);
-    setLoadingState(LoadingState.IDLE);
-  };
+    };
+    loadMatches();
+  }, [currentSport]);
 
   const handleAnalyze = async (home: string, away: string, league: string, liveState?: { score: string, time: string }) => {
     setLoadingState(LoadingState.ANALYZING);
@@ -84,11 +55,6 @@ const App: React.FC = () => {
     }
   };
 
-  // Authentication Gate
-  if (!user) {
-    return <LoginScreen onLoginSuccess={handleLoginSuccess} />;
-  }
-
   return (
     <div className="min-h-screen bg-[#0f172a] text-slate-200 selection:bg-emerald-500/30 selection:text-emerald-200">
       {/* Background Accents */}
@@ -109,25 +75,8 @@ const App: React.FC = () => {
                 <h1 className="text-xl font-black tracking-tight text-white leading-none">
                   MatchOracle<span className="text-emerald-500">.ai</span>
                 </h1>
-                <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Premium Edition</span>
+                <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Free Premium Edition</span>
              </div>
-          </div>
-
-          <div className="flex items-center space-x-4">
-             <div className="flex items-center space-x-2 px-3 py-1.5 bg-slate-900/50 rounded-full border border-slate-700/50">
-               <div className="w-6 h-6 rounded-full bg-indigo-500 flex items-center justify-center text-[10px] font-bold text-white">
-                 {user.name.charAt(0).toUpperCase()}
-               </div>
-               <span className="text-xs text-slate-300 font-medium pr-1">Welcome, {user.name.split(' ')[0]}</span>
-             </div>
-             
-             <button 
-               onClick={handleLogout}
-               className="flex items-center space-x-2 text-xs font-bold text-slate-400 hover:text-rose-400 transition-colors px-3 py-2 rounded-lg hover:bg-rose-500/10"
-             >
-               <LogOut className="w-4 h-4" />
-               <span>Sign Out</span>
-             </button>
           </div>
         </nav>
 

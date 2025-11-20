@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { MatchAnalysis, PlayerStat, SportType } from '../types';
-import { TrendingUp, History, AlertTriangle, Activity, ExternalLink, CheckCircle2, Flag, Goal, Percent, BarChart3, Shield, Trophy, Users, Coins, RefreshCw, StickyNote, Timer, Radio, User, Siren, Dribbble, Snowflake, Hand, GripHorizontal, CloudRain, Gavel, Brain, Zap, ArrowRightCircle } from 'lucide-react';
+import { TrendingUp, History, AlertTriangle, Activity, ExternalLink, CheckCircle2, Flag, Goal, Percent, BarChart3, Shield, Trophy, Users, Coins, RefreshCw, StickyNote, Timer, Radio, User, Siren, Dribbble, Snowflake, Hand, GripHorizontal, CloudRain, Gavel, Brain, Zap, ArrowRightCircle, Target, Sparkles } from 'lucide-react';
 import { fetchLiveOdds, fetchTeamDetails } from '../services/geminiService';
 
 interface AnalysisResultProps {
@@ -109,9 +109,11 @@ const ReasoningBreakdown: React.FC<{ content?: string }> = ({ content }) => {
 
 const LivePredictionPanel: React.FC<{ 
   content?: string, 
+  nextGoal?: string,
+  liveTip?: string,
   score: string, 
   time: string 
-}> = ({ content, score, time }) => {
+}> = ({ content, nextGoal, liveTip, score, time }) => {
   return (
     <div className="bg-slate-950 border border-rose-500/30 rounded-2xl overflow-hidden mb-8 shadow-2xl shadow-rose-900/20">
       <div className="bg-rose-500/10 border-b border-rose-500/20 px-6 py-4 flex items-center justify-between">
@@ -120,7 +122,7 @@ const LivePredictionPanel: React.FC<{
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-3 w-3 bg-rose-500"></span>
            </span>
-           <h3 className="text-lg font-bold text-white tracking-tight">Live Match Prediction Panel</h3>
+           <h3 className="text-lg font-bold text-white tracking-tight">Live Pulse HUD</h3>
         </div>
         <div className="font-mono font-bold text-rose-400 bg-rose-950/50 px-3 py-1 rounded border border-rose-500/30">
           {time} • {score}
@@ -128,19 +130,31 @@ const LivePredictionPanel: React.FC<{
       </div>
       
       <div className="p-6 grid grid-cols-1 md:grid-cols-3 gap-6">
-         <div className="md:col-span-2">
-            <h4 className="text-xs font-bold text-rose-400 uppercase tracking-wider mb-2 flex items-center gap-2">
-               <Zap className="w-4 h-4" /> Real-Time Analysis
-            </h4>
-            <p className="text-slate-300 leading-relaxed whitespace-pre-wrap text-sm">
-              {content || "Analyzing current momentum..."}
-            </p>
+         <div className="md:col-span-2 space-y-4">
+            <div>
+              <h4 className="text-xs font-bold text-rose-400 uppercase tracking-wider mb-2 flex items-center gap-2">
+                <Zap className="w-4 h-4" /> Momentum Analysis
+              </h4>
+              <p className="text-slate-300 leading-relaxed whitespace-pre-wrap text-sm">
+                {content || "Analyzing current match momentum..."}
+              </p>
+            </div>
+            {liveTip && (
+              <div className="bg-emerald-500/10 border border-emerald-500/20 p-3 rounded-lg flex items-start gap-3">
+                 <Sparkles className="w-5 h-5 text-emerald-400 mt-0.5" />
+                 <div>
+                    <div className="text-xs font-bold text-emerald-400 uppercase tracking-wider">AI Suggestion</div>
+                    <div className="text-white font-medium text-sm">{liveTip}</div>
+                 </div>
+              </div>
+            )}
          </div>
          
-         <div className="bg-slate-900/50 rounded-xl p-4 border border-slate-800 flex flex-col justify-center items-center text-center">
-            <ArrowRightCircle className="w-8 h-8 text-rose-500 mb-2 animate-pulse" />
-            <div className="text-xs text-slate-500 uppercase font-bold tracking-wider mb-1">Next Goal Probability</div>
-            <div className="text-white font-bold text-sm">Calculating based on pressure...</div>
+         <div className="bg-slate-900/50 rounded-xl p-4 border border-slate-800 flex flex-col justify-center items-center text-center relative overflow-hidden group">
+            <div className="absolute inset-0 bg-rose-500/5 group-hover:bg-rose-500/10 transition-colors"></div>
+            <Target className="w-10 h-10 text-rose-500 mb-3 animate-pulse" />
+            <div className="text-xs text-slate-500 uppercase font-bold tracking-wider mb-1">Next Goal Prediction</div>
+            <div className="text-white font-bold text-lg md:text-xl">{nextGoal || "Analyzing..."}</div>
          </div>
       </div>
     </div>
@@ -454,7 +468,7 @@ const StrengthComparison: React.FC<{
 // --- Main Component ---
 
 export const AnalysisResult: React.FC<AnalysisResultProps> = ({ data, homeTeam, awayTeam, sport }) => {
-  const { scorePrediction, scoreProbability, totalGoals, corners, cards, weather, referee, redFlags, confidence, summary, recentForm, headToHead, keyFactors, predictionLogic, liveAnalysis } = data.sections;
+  const { scorePrediction, scoreProbability, totalGoals, corners, cards, weather, referee, redFlags, confidence, summary, recentForm, headToHead, keyFactors, predictionLogic, liveAnalysis, nextGoal, liveTip } = data.sections;
   const stats = data.stats;
   const liveState = data.liveState;
 
@@ -556,6 +570,8 @@ export const AnalysisResult: React.FC<AnalysisResultProps> = ({ data, homeTeam, 
       {liveState?.isLive && (
         <LivePredictionPanel 
           content={liveAnalysis} 
+          nextGoal={nextGoal}
+          liveTip={liveTip}
           score={liveState.currentScore} 
           time={liveState.matchTime} 
         />
