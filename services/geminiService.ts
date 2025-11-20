@@ -1,10 +1,11 @@
-
 import { GoogleGenAI } from "@google/genai";
 import { MatchAnalysis, MatchFixture, MatchStats } from "../types";
 
-const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+// Helper to initialize AI lazily to prevent top-level crashes
+const getAI = () => new GoogleGenAI({ apiKey: process.env.API_KEY });
 
 export const fetchTodaysMatches = async (): Promise<MatchFixture[]> => {
+  const ai = getAI();
   const modelId = "gemini-2.5-flash";
   const today = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
   
@@ -49,6 +50,7 @@ export const fetchTodaysMatches = async (): Promise<MatchFixture[]> => {
 };
 
 export const fetchLiveOdds = async (homeTeam: string, awayTeam: string): Promise<{ homeWin: number; draw: number; awayWin: number } | undefined> => {
+  const ai = getAI();
   const modelId = "gemini-2.5-flash";
   const prompt = `
     Find the current live decimal betting odds for the soccer match between ${homeTeam} and ${awayTeam}.
@@ -85,6 +87,7 @@ export const fetchLiveOdds = async (homeTeam: string, awayTeam: string): Promise
 };
 
 export const fetchTeamDetails = async (homeTeam: string, awayTeam: string): Promise<MatchStats['comparison'] | undefined> => {
+  const ai = getAI();
   const modelId = "gemini-2.5-flash";
   const prompt = `
     Find the current squad market value (e.g. €500m), current league position, and estimated team strength rating (0-100 based on FIFA/FC ratings or ELO) for ${homeTeam} and ${awayTeam}.
@@ -117,6 +120,7 @@ export const fetchTeamDetails = async (homeTeam: string, awayTeam: string): Prom
 };
 
 export const analyzeMatch = async (homeTeam: string, awayTeam: string, league?: string, liveState?: { score: string, time: string }): Promise<MatchAnalysis> => {
+  const ai = getAI();
   const modelId = "gemini-2.5-flash";
   
   const context = league ? `in the ${league}` : '';
