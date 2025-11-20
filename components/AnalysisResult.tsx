@@ -1,8 +1,8 @@
 
 import React, { useState, useEffect } from 'react';
 import { MatchAnalysis, PlayerStat, SportType } from '../types';
-import { TrendingUp, History, AlertTriangle, Activity, ExternalLink, CheckCircle2, Flag, Goal, Percent, BarChart3, Shield, Trophy, Users, Coins, RefreshCw, StickyNote, Timer, Radio, User, Siren, Dribbble, Snowflake, Hand, GripHorizontal, CloudRain, Gavel, Brain, Zap, ArrowRightCircle, Target, Sparkles, EyeOff, Minus, MessageCircle } from 'lucide-react';
-import { fetchLiveOdds, fetchTeamDetails } from '../services/geminiService';
+import { TrendingUp, History, AlertTriangle, Activity, ExternalLink, CheckCircle2, Flag, Goal, Percent, BarChart3, Shield, Trophy, Users, Coins, RefreshCw, StickyNote, Timer, Radio, User, Siren, Dribbble, Snowflake, Hand, GripHorizontal, CloudRain, Gavel, Brain, Zap, ArrowRightCircle, Target, Sparkles, EyeOff, Minus, MessageCircle, MapPin, Volume2, Image as ImageIcon, Video, Loader2, Play } from 'lucide-react';
+import { fetchLiveOdds, fetchTeamDetails, getStadiumDetails, playMatchAudio, generateMatchImage } from '../services/geminiService';
 
 interface AnalysisResultProps {
   data: MatchAnalysis;
@@ -445,11 +445,19 @@ export const AnalysisResult: React.FC<AnalysisResultProps> = ({ data, homeTeam, 
   const [isRefreshingOdds, setIsRefreshingOdds] = useState(false);
   const [comparison, setComparison] = useState(stats?.comparison);
   const [bettingMode, setBettingMode] = useState(false);
+  
+  // New Features State
+  const [stadium, setStadium] = useState<{text: string, mapLink?: {uri: string, title: string}} | null>(null);
+  const [generatedImage, setGeneratedImage] = useState<string | null>(null);
+  const [isGeneratingImage, setIsGeneratingImage] = useState(false);
+  const [isPlayingAudio, setIsPlayingAudio] = useState(false);
 
   useEffect(() => {
     setOdds(stats?.odds);
     setComparison(stats?.comparison);
-  }, [stats]);
+    // Fetch Stadium Info automatically
+    getStadiumDetails(homeTeam).then(res => setStadium(res));
+  }, [stats, homeTeam]);
 
   const handleManualOddsRefresh = async () => {
     if (isRefreshingOdds) return;
@@ -478,6 +486,22 @@ export const AnalysisResult: React.FC<AnalysisResultProps> = ({ data, homeTeam, 
       `_Generated via MatchOracle AI_`;
     
     window.open(`https://wa.me/?text=${text}`, '_blank');
+  };
+
+  const handlePlayAudio = async () => {
+      if (isPlayingAudio) return;
+      setIsPlayingAudio(true);
+      await playMatchAudio(`Match Oracle Analysis for ${homeTeam} versus ${awayTeam}. Prediction: ${scorePrediction}. ${summary}`);
+      setIsPlayingAudio(false);
+  };
+
+  const handleGenerateImage = async () => {
+      if (isGeneratingImage) return;
+      setIsGeneratingImage(true);
+      const prompt = `A realistic cinematic soccer match poster for ${homeTeam} vs ${awayTeam}, stadium atmosphere, 4k, dramatic lighting`;
+      const b64 = await generateMatchImage(prompt);
+      if (b64) setGeneratedImage(`data:image/jpeg;base64,${b64}`);
+      setIsGeneratingImage(false);
   };
 
   useEffect(() => {
@@ -587,12 +611,75 @@ export const AnalysisResult: React.FC<AnalysisResultProps> = ({ data, homeTeam, 
               <div className="text-xs md:text-sm font-semibold text-slate-500 uppercase tracking-widest">Away</div>
             </div>
           </div>
-          <div className="max-w-3xl mx-auto text-center bg-slate-800/50 rounded-xl p-4 border border-slate-700/50 relative overflow-hidden">
-             <p className="text-slate-200 text-lg leading-relaxed font-medium">"{summary || "Analysis complete."}"</p>
+          
+          <div className="max-w-3xl mx-auto text-center bg-slate-800/50 rounded-xl p-4 border border-slate-700/50 relative overflow-hidden flex items-center gap-4">
+             <p className="text-slate-200 text-lg leading-relaxed font-medium flex-1">"{summary || "Analysis complete."}"</p>
+             <button 
+                onClick={handlePlayAudio}
+                disabled={isPlayingAudio}
+                className="bg-slate-700 hover:bg-slate-600 text-emerald-400 p-2 rounded-full transition-colors disabled:opacity-50"
+             >
+                {isPlayingAudio ? <Loader2 className="w-5 h-5 animate-spin" /> : <Volume2 className="w-5 h-5" />}
+             </button>
           </div>
         </div>
       </div>
       
+      {/* --- GEN AI MEDIA LAB --- */}
+      <div className={`bg-slate-900/60 border border-purple-500/20 rounded-xl p-6 ${focusClass(false)}`}>
+          <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center gap-2">
+                  <Sparkles className="w-5 h-5 text-purple-400" />
+                  <h3 className="font-bold text-purple-100">Generative Media Lab</h3>
+              </div>
+              <span className="text-[10px] font-bold bg-purple-500/10 text-purple-400 px-2 py-1 rounded border border-purple-500/20">Gemini Powered</span>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Imagen */}
+              <div className="bg-slate-800/40 rounded-lg p-4 border border-slate-700/50 flex flex-col items-center justify-center min-h-[200px]">
+                  {generatedImage ? (
+                      <div className="relative w-full h-full group">
+                          <img src={generatedImage} alt="Generated Poster" className="w-full h-48 object-cover rounded-lg shadow-lg" />
+                          <a href={generatedImage} download="match-poster.jpg" className="absolute inset-0 bg-black/50 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded-lg">
+                              <span className="text-white font-bold text-sm">Download Poster</span>
+                          </a>
+                      </div>
+                  ) : (
+                      <div className="text-center space-y-3">
+                          <div className="bg-slate-700/50 p-3 rounded-full w-fit mx-auto">
+                              <ImageIcon className="w-6 h-6 text-purple-400" />
+                          </div>
+                          <p className="text-sm text-slate-400">Create a cinematic match poster with AI.</p>
+                          <button 
+                            onClick={handleGenerateImage}
+                            disabled={isGeneratingImage}
+                            className="bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold px-4 py-2 rounded-lg transition-colors flex items-center gap-2 mx-auto"
+                          >
+                            {isGeneratingImage ? <Loader2 className="w-3 h-3 animate-spin" /> : <Sparkles className="w-3 h-3" />}
+                            Generate Poster
+                          </button>
+                      </div>
+                  )}
+              </div>
+              
+              {/* Stadium / Veo Placeholder */}
+              <div className="bg-slate-800/40 rounded-lg p-4 border border-slate-700/50 space-y-4">
+                  <div className="flex items-start gap-3">
+                      <MapPin className="w-5 h-5 text-blue-400 mt-1" />
+                      <div>
+                          <h4 className="text-sm font-bold text-slate-200">Stadium Intel</h4>
+                          <p className="text-xs text-slate-400 mt-1 leading-relaxed">{stadium?.text || "Locating stadium info via Google Maps..."}</p>
+                          {stadium?.mapLink && (
+                              <a href={stadium.mapLink.uri} target="_blank" rel="noreferrer" className="text-xs text-blue-400 hover:text-blue-300 flex items-center gap-1 mt-2 font-bold">
+                                  View on Maps <ExternalLink className="w-3 h-3" />
+                              </a>
+                          )}
+                      </div>
+                  </div>
+              </div>
+          </div>
+      </div>
+
       <ReasoningBreakdown content={predictionLogic} className={focusClass(false)} />
 
       {stats && (

@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { TeamInput } from './components/TeamInput';
 import { AnalysisResult } from './components/AnalysisResult';
 import { MatchList } from './components/MatchList';
+import { OracleChat } from './components/OracleChat';
 import { analyzeMatch, fetchTodaysMatches } from './services/geminiService';
 import { MatchAnalysis, MatchFixture, LoadingState, SportType } from './types';
 import { Radar, RefreshCw } from 'lucide-react';
@@ -172,6 +173,8 @@ const App: React.FC = () => {
           <p>&copy; {new Date().getFullYear()} MatchOracle AI. Data sourced via Google Search Grounding.</p>
           <p className="mt-2 text-xs opacity-60">Predictions are estimates. Please use responsibly.</p>
         </footer>
+        
+        <OracleChat />
       </div>
     </div>
   );

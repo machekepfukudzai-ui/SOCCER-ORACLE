@@ -12,6 +12,10 @@ export interface GroundingChunk {
     uri: string;
     title: string;
   };
+  maps?: {
+    uri: string;
+    title: string;
+  };
 }
 
 export interface MatchFixture {
