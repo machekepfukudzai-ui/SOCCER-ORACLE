@@ -1,0 +1,5 @@
+{
+  "name": "MatchOracle AI",
+  "description": "Advanced soccer match prediction engine using Gemini AI with live Google Search grounding to analyze form, head-to-head records, and team strength.",
+  "requestFramePermissions": []
+}
