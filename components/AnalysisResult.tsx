@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { MatchAnalysis, PlayerStat, SportType } from '../types';
-import { TrendingUp, History, AlertTriangle, Activity, ExternalLink, CheckCircle2, Flag, Goal, Percent, BarChart3, Shield, Trophy, Users, Coins, RefreshCw, StickyNote, Timer, Radio, User, Siren, Dribbble, Snowflake, Hand, GripHorizontal, CloudRain, Gavel, Brain, Zap, ArrowRightCircle, Target, Sparkles } from 'lucide-react';
+import { TrendingUp, History, AlertTriangle, Activity, ExternalLink, CheckCircle2, Flag, Goal, Percent, BarChart3, Shield, Trophy, Users, Coins, RefreshCw, StickyNote, Timer, Radio, User, Siren, Dribbble, Snowflake, Hand, GripHorizontal, CloudRain, Gavel, Brain, Zap, ArrowRightCircle, Target, Sparkles, EyeOff } from 'lucide-react';
 import { fetchLiveOdds, fetchTeamDetails } from '../services/geminiService';
 
 interface AnalysisResultProps {
@@ -11,8 +11,8 @@ interface AnalysisResultProps {
   sport: SportType;
 }
 
-const SectionCard: React.FC<{ title: string; icon: React.ReactNode; children: React.ReactNode; colorClass: string }> = ({ title, icon, children, colorClass }) => (
-  <div className="bg-slate-800/40 border border-slate-700/50 rounded-xl overflow-hidden h-full flex flex-col">
+const SectionCard: React.FC<{ title: string; icon: React.ReactNode; children: React.ReactNode; colorClass: string; className?: string }> = ({ title, icon, children, colorClass, className = '' }) => (
+  <div className={`bg-slate-800/40 border border-slate-700/50 rounded-xl overflow-hidden h-full flex flex-col transition-all duration-500 ${className}`}>
     <div className={`px-5 py-3 border-b border-slate-700/50 bg-slate-800/60 flex items-center space-x-2 ${colorClass}`}>
       {icon}
       <h3 className="font-semibold tracking-wide">{title}</h3>
@@ -23,8 +23,8 @@ const SectionCard: React.FC<{ title: string; icon: React.ReactNode; children: Re
   </div>
 );
 
-const StatCard: React.FC<{ label: string; value: string; icon: React.ReactNode; color: string; accentColor: string }> = ({ label, value, icon, color, accentColor }) => (
-  <div className="relative overflow-hidden bg-slate-800/80 border border-slate-700 rounded-xl p-5 shadow-lg group hover:border-slate-600 transition-all duration-300">
+const StatCard: React.FC<{ label: string; value: string; icon: React.ReactNode; color: string; accentColor: string; className?: string }> = ({ label, value, icon, color, accentColor, className = '' }) => (
+  <div className={`relative overflow-hidden bg-slate-800/80 border border-slate-700 rounded-xl p-5 shadow-lg group hover:border-slate-600 transition-all duration-500 ${className}`}>
     <div className={`absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 transition-opacity ${accentColor}`}>
       {React.cloneElement(icon as React.ReactElement<any>, { className: "w-16 h-16" })}
     </div>
@@ -40,11 +40,11 @@ const StatCard: React.FC<{ label: string; value: string; icon: React.ReactNode; 
   </div>
 );
 
-const RiskAlert: React.FC<{ content: string }> = ({ content }) => {
+const RiskAlert: React.FC<{ content: string; className?: string }> = ({ content, className = '' }) => {
   if (!content || content.toLowerCase().includes('none') || content.length < 5) return null;
 
   return (
-    <div className="w-full bg-red-500/10 border border-red-500/30 rounded-xl p-4 mb-6 animate-in fade-in slide-in-from-top-4 duration-500">
+    <div className={`w-full bg-red-500/10 border border-red-500/30 rounded-xl p-4 mb-6 animate-in fade-in slide-in-from-top-4 duration-500 transition-all ${className}`}>
       <div className="flex items-start space-x-3">
         <div className="bg-red-500/20 p-2 rounded-lg mt-1">
           <Siren className="w-5 h-5 text-red-400 animate-pulse" />
@@ -82,14 +82,14 @@ const TeamLogo: React.FC<{ url?: string, name: string }> = ({ url, name }) => {
   );
 };
 
-const ReasoningBreakdown: React.FC<{ content?: string }> = ({ content }) => {
+const ReasoningBreakdown: React.FC<{ content?: string; className?: string }> = ({ content, className = '' }) => {
   if (!content) return null;
   
   // Split lines if bullet points used
   const reasons = content.split('\n').filter(l => l.trim().length > 0);
 
   return (
-    <div className="bg-slate-900/60 border border-indigo-500/30 rounded-xl p-5 mb-8 relative overflow-hidden">
+    <div className={`bg-slate-900/60 border border-indigo-500/30 rounded-xl p-5 mb-8 relative overflow-hidden transition-all duration-500 ${className}`}>
       <div className="absolute top-0 left-0 w-1 h-full bg-indigo-500"></div>
       <div className="flex items-center gap-2 mb-4">
         <Brain className="w-5 h-5 text-indigo-400" />
@@ -112,10 +112,11 @@ const LivePredictionPanel: React.FC<{
   nextGoal?: string,
   liveTip?: string,
   score: string, 
-  time: string 
-}> = ({ content, nextGoal, liveTip, score, time }) => {
+  time: string,
+  className?: string 
+}> = ({ content, nextGoal, liveTip, score, time, className = '' }) => {
   return (
-    <div className="bg-slate-950 border border-rose-500/30 rounded-2xl overflow-hidden mb-8 shadow-2xl shadow-rose-900/20">
+    <div className={`bg-slate-950 border border-rose-500/30 rounded-2xl overflow-hidden mb-8 shadow-2xl shadow-rose-900/20 animate-in fade-in slide-in-from-top-6 duration-700 transition-all ${className}`}>
       <div className="bg-rose-500/10 border-b border-rose-500/20 px-6 py-4 flex items-center justify-between">
         <div className="flex items-center gap-3">
            <span className="relative flex h-3 w-3">
@@ -124,7 +125,7 @@ const LivePredictionPanel: React.FC<{
            </span>
            <h3 className="text-lg font-bold text-white tracking-tight">Live Pulse HUD</h3>
         </div>
-        <div className="font-mono font-bold text-rose-400 bg-rose-950/50 px-3 py-1 rounded border border-rose-500/30">
+        <div className="font-mono font-bold text-rose-400 bg-rose-950/50 px-3 py-1 rounded border border-rose-500/30 shadow-sm">
           {time} • {score}
         </div>
       </div>
@@ -136,7 +137,7 @@ const LivePredictionPanel: React.FC<{
                 <Zap className="w-4 h-4" /> Momentum Analysis
               </h4>
               <p className="text-slate-300 leading-relaxed whitespace-pre-wrap text-sm">
-                {content || "Analyzing current match momentum..."}
+                {content || "Analyzing current match momentum and pressure..."}
               </p>
             </div>
             {liveTip && (
@@ -479,6 +480,9 @@ export const AnalysisResult: React.FC<AnalysisResultProps> = ({ data, homeTeam, 
   // Detailed Team Comparison State
   const [comparison, setComparison] = useState(stats?.comparison);
 
+  // Betting Focus Mode
+  const [bettingMode, setBettingMode] = useState(false);
+
   // Reset state when initial data changes
   useEffect(() => {
     setOdds(stats?.odds);
@@ -528,6 +532,13 @@ export const AnalysisResult: React.FC<AnalysisResultProps> = ({ data, homeTeam, 
     return 'text-slate-400 bg-slate-500/10 border-slate-500/20';
   };
 
+  const focusClass = (isTarget: boolean) => {
+    if (!bettingMode) return '';
+    return isTarget 
+      ? 'ring-2 ring-rose-500 shadow-[0_0_30px_rgba(244,63,94,0.2)] opacity-100 scale-[1.01] z-10 relative' 
+      : 'opacity-25 grayscale blur-[2px] pointer-events-none';
+  };
+
   // --- Sport Specific Helper ---
   const getStatLabels = () => {
     switch(sport) {
@@ -563,8 +574,19 @@ export const AnalysisResult: React.FC<AnalysisResultProps> = ({ data, homeTeam, 
   return (
     <div className="w-full max-w-5xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-12">
       
+      {/* Betting Mode Toggle */}
+      <div className="flex justify-end">
+          <button 
+              onClick={() => setBettingMode(!bettingMode)}
+              className={`flex items-center gap-2 px-4 py-2 rounded-full font-bold text-xs uppercase tracking-wider transition-all duration-300 ${bettingMode ? 'bg-rose-500 text-white shadow-lg shadow-rose-500/20' : 'bg-slate-800 text-slate-400 hover:bg-slate-700 border border-slate-700'}`}
+          >
+              {bettingMode ? <Target className="w-4 h-4 animate-pulse" /> : <EyeOff className="w-4 h-4" />}
+              {bettingMode ? 'Betting Focus Active' : 'Highlight Betting Angles'}
+          </button>
+      </div>
+
       {/* Red Flag Alert */}
-      {redFlags && <RiskAlert content={redFlags} />}
+      {redFlags && <RiskAlert content={redFlags} className={focusClass(true)} />}
       
       {/* LIVE PREDICTION PANEL */}
       {liveState?.isLive && (
@@ -573,12 +595,13 @@ export const AnalysisResult: React.FC<AnalysisResultProps> = ({ data, homeTeam, 
           nextGoal={nextGoal}
           liveTip={liveTip}
           score={liveState.currentScore} 
-          time={liveState.matchTime} 
+          time={liveState.matchTime}
+          className={focusClass(true)} 
         />
       )}
 
       {/* Scoreboard Card */}
-      <div className="relative overflow-hidden bg-gradient-to-br from-slate-800 to-slate-900 rounded-3xl border border-slate-700 shadow-2xl shadow-black/40">
+      <div className={`relative overflow-hidden bg-gradient-to-br from-slate-800 to-slate-900 rounded-3xl border border-slate-700 shadow-2xl shadow-black/40 transition-all duration-500 ${bettingMode ? 'opacity-80' : ''}`}>
         {/* Background Pattern */}
         <div className="absolute inset-0 opacity-5 bg-[radial-gradient(#fff_1px,transparent_1px)] [background-size:16px_16px]"></div>
         
@@ -656,12 +679,12 @@ export const AnalysisResult: React.FC<AnalysisResultProps> = ({ data, homeTeam, 
       </div>
       
       {/* LOGIC BREAKDOWN */}
-      <ReasoningBreakdown content={predictionLogic} />
+      <ReasoningBreakdown content={predictionLogic} className={focusClass(false)} />
 
       {/* Charts Section */}
       {stats && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div className="bg-slate-800/40 border border-slate-700/50 rounded-xl p-6">
+          <div className={`bg-slate-800/40 border border-slate-700/50 rounded-xl p-6 transition-all duration-500 ${focusClass(true)}`}>
              <div className="flex items-center space-x-2 mb-6 text-blue-400">
                <BarChart3 className="w-5 h-5" />
                <h3 className="font-semibold tracking-wide">Win Probability & Market</h3>
@@ -685,7 +708,7 @@ export const AnalysisResult: React.FC<AnalysisResultProps> = ({ data, homeTeam, 
              </div>
           </div>
 
-          <div className="bg-slate-800/40 border border-slate-700/50 rounded-xl p-6">
+          <div className={`bg-slate-800/40 border border-slate-700/50 rounded-xl p-6 transition-all duration-500 ${focusClass(false)}`}>
              <div className="flex items-center space-x-2 mb-6 text-purple-400">
                <Activity className="w-5 h-5" />
                <h3 className="font-semibold tracking-wide">Recent Scoring Trend</h3>
@@ -709,6 +732,7 @@ export const AnalysisResult: React.FC<AnalysisResultProps> = ({ data, homeTeam, 
           icon={statConfig.main.icon} 
           color="text-emerald-400"
           accentColor="text-emerald-500"
+          className={focusClass(true)}
         />
         <StatCard 
           label={statConfig.sec.label} 
@@ -716,6 +740,7 @@ export const AnalysisResult: React.FC<AnalysisResultProps> = ({ data, homeTeam, 
           icon={statConfig.sec.icon} 
           color="text-amber-400"
           accentColor="text-amber-500"
+          className={focusClass(true)}
         />
         <StatCard 
           label={statConfig.ter.label} 
@@ -723,12 +748,13 @@ export const AnalysisResult: React.FC<AnalysisResultProps> = ({ data, homeTeam, 
           icon={statConfig.ter.icon} 
           color="text-rose-400"
           accentColor="text-rose-500"
+          className={focusClass(true)}
         />
       </div>
       
       {/* New Granular Conditions Grid (Weather/Referee) */}
       {(weather || referee) && (
-         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+         <div className={`grid grid-cols-1 md:grid-cols-2 gap-6 transition-all duration-500 ${focusClass(true)}`}>
             {weather && (
                <div className="bg-slate-800/40 border border-slate-700/50 rounded-xl p-4 flex items-center space-x-4">
                   <div className="bg-blue-500/10 p-3 rounded-full">
@@ -760,6 +786,7 @@ export const AnalysisResult: React.FC<AnalysisResultProps> = ({ data, homeTeam, 
           title="Recent Form Analysis" 
           icon={<Activity className="w-5 h-5" />}
           colorClass="text-blue-400"
+          className={focusClass(false)}
         >
           {recentForm || "No recent form data available."}
         </SectionCard>
@@ -768,6 +795,7 @@ export const AnalysisResult: React.FC<AnalysisResultProps> = ({ data, homeTeam, 
           title="Head to Head History" 
           icon={<History className="w-5 h-5" />}
           colorClass="text-purple-400"
+          className={focusClass(false)}
         >
           {headToHead || "No historical data available."}
         </SectionCard>
@@ -776,6 +804,7 @@ export const AnalysisResult: React.FC<AnalysisResultProps> = ({ data, homeTeam, 
           title={liveState?.isLive ? "Live Factors" : "Key Physical Factors"}
           icon={liveState?.isLive ? <Timer className="w-5 h-5" /> : <AlertTriangle className="w-5 h-5" />}
           colorClass={liveState?.isLive ? "text-rose-400" : "text-amber-400"}
+          className={focusClass(true)}
         >
           {(comparison || stats?.comparison || stats?.keyPlayers) && (
             <StrengthComparison 
@@ -797,6 +826,7 @@ export const AnalysisResult: React.FC<AnalysisResultProps> = ({ data, homeTeam, 
           title="AI Logic & Grounding" 
           icon={<TrendingUp className="w-5 h-5" />}
           colorClass="text-emerald-400"
+          className={focusClass(false)}
         >
           <p className="text-slate-400 mb-3">
             Prediction generated using live search results for {sport.toLowerCase()}, analyzing physical metrics, form, and roster availability.
@@ -810,7 +840,7 @@ export const AnalysisResult: React.FC<AnalysisResultProps> = ({ data, homeTeam, 
 
       {/* Sources */}
       {data.groundingChunks && data.groundingChunks.length > 0 && (
-        <div className="bg-slate-900/50 rounded-xl p-6 border border-slate-800">
+        <div className={`bg-slate-900/50 rounded-xl p-6 border border-slate-800 ${focusClass(false)}`}>
           <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-4">Verified Data Sources</h4>
           <div className="flex flex-wrap gap-3">
             {data.groundingChunks.map((chunk, idx) => {
