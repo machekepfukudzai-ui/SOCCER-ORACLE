@@ -25,9 +25,14 @@ const App: React.FC = () => {
 
   // Check for existing session on mount
   useEffect(() => {
-    const storedUser = authService.getCurrentUser();
-    if (storedUser) {
-      setUser(storedUser);
+    try {
+      const storedUser = authService.getCurrentUser();
+      if (storedUser) {
+        setUser(storedUser);
+      }
+    } catch (error) {
+      console.error("Failed to restore session", error);
+      authService.logout();
     }
   }, []);
 

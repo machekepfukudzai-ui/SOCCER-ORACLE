@@ -80,6 +80,8 @@ export interface MatchAnalysis {
     recentForm: string;
     headToHead: string;
     keyFactors: string;
+    predictionLogic?: string; // New: Step-by-step reasoning
+    liveAnalysis?: string; // New: Specific live game breakdown
   };
 }
 

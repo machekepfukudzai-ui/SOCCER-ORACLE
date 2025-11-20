@@ -20,6 +20,17 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    
+    // Pre-validation
+    if (!email.trim() || !password.trim()) {
+        setError("Please fill in all fields.");
+        return;
+    }
+    if (!isLogin && !name.trim()) {
+        setError("Name is required.");
+        return;
+    }
+
     setIsLoading(true);
 
     try {
@@ -27,15 +38,21 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
       if (isLogin) {
         user = await authService.login(email, password);
       } else {
-        if (!name) throw new Error("Name is required.");
         user = await authService.signup(name, email, password);
       }
       onLoginSuccess(user);
     } catch (err: any) {
-      setError(err.message || "Authentication failed.");
+      console.error("Auth Error:", err);
+      setError(err.message || "Authentication failed. Please try again.");
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const toggleMode = () => {
+      setIsLogin(!isLogin);
+      setError(null);
+      // Optional: Clear fields on toggle or keep them? Keeping them is usually better UX.
   };
 
   return (
@@ -106,7 +123,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
             </div>
 
             {error && (
-              <div className="text-rose-400 text-xs text-center bg-rose-500/10 py-2 rounded-lg border border-rose-500/20">
+              <div className="text-rose-400 text-xs text-center bg-rose-500/10 py-3 rounded-lg border border-rose-500/20 animate-in fade-in slide-in-from-top-1">
                 {error}
               </div>
             )}
@@ -114,7 +131,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white font-bold py-3.5 rounded-xl shadow-lg shadow-emerald-500/20 flex items-center justify-center space-x-2 transition-all transform active:scale-[0.98]"
+              className="w-full bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-white font-bold py-3.5 rounded-xl shadow-lg shadow-emerald-500/20 flex items-center justify-center space-x-2 transition-all transform active:scale-[0.98] disabled:opacity-70 disabled:cursor-not-allowed"
             >
               {isLoading ? (
                 <Loader2 className="w-5 h-5 animate-spin" />
@@ -130,11 +147,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLoginSuccess }) => {
 
         <div className="bg-slate-900/50 border-t border-slate-700/50 p-4 text-center">
           <button
-            onClick={() => {
-              setIsLogin(!isLogin);
-              setError(null);
-            }}
-            className="text-slate-400 text-sm hover:text-emerald-400 transition-colors font-medium"
+            onClick={toggleMode}
+            className="text-slate-400 text-sm hover:text-emerald-400 transition-colors font-medium focus:outline-none"
           >
             {isLogin ? "Don't have an account? Sign Up" : "Already have an account? Sign In"}
           </button>

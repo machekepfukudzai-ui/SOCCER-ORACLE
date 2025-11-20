@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { MatchAnalysis, PlayerStat, SportType } from '../types';
-import { TrendingUp, History, AlertTriangle, Activity, ExternalLink, CheckCircle2, Flag, Goal, Percent, BarChart3, Shield, Trophy, Users, Coins, RefreshCw, StickyNote, Timer, Radio, User, Siren, Dribbble, Snowflake, Hand, GripHorizontal, CloudRain, Gavel } from 'lucide-react';
+import { TrendingUp, History, AlertTriangle, Activity, ExternalLink, CheckCircle2, Flag, Goal, Percent, BarChart3, Shield, Trophy, Users, Coins, RefreshCw, StickyNote, Timer, Radio, User, Siren, Dribbble, Snowflake, Hand, GripHorizontal, CloudRain, Gavel, Brain, Zap, ArrowRightCircle } from 'lucide-react';
 import { fetchLiveOdds, fetchTeamDetails } from '../services/geminiService';
 
 interface AnalysisResultProps {
@@ -78,6 +78,71 @@ const TeamLogo: React.FC<{ url?: string, name: string }> = ({ url, name }) => {
             onError={() => setError(true)}
             loading="lazy"
         />
+    </div>
+  );
+};
+
+const ReasoningBreakdown: React.FC<{ content?: string }> = ({ content }) => {
+  if (!content) return null;
+  
+  // Split lines if bullet points used
+  const reasons = content.split('\n').filter(l => l.trim().length > 0);
+
+  return (
+    <div className="bg-slate-900/60 border border-indigo-500/30 rounded-xl p-5 mb-8 relative overflow-hidden">
+      <div className="absolute top-0 left-0 w-1 h-full bg-indigo-500"></div>
+      <div className="flex items-center gap-2 mb-4">
+        <Brain className="w-5 h-5 text-indigo-400" />
+        <h3 className="text-sm font-bold text-indigo-400 uppercase tracking-wider">Step-by-Step Prediction Logic</h3>
+      </div>
+      <div className="space-y-3">
+        {reasons.map((reason, idx) => (
+          <div key={idx} className="flex items-start gap-3 text-sm text-slate-300">
+             <div className="mt-1.5 w-1.5 h-1.5 rounded-full bg-indigo-500/50 flex-shrink-0"></div>
+             <p className="leading-relaxed">{reason.replace(/^[•-]\s*/, '')}</p>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+const LivePredictionPanel: React.FC<{ 
+  content?: string, 
+  score: string, 
+  time: string 
+}> = ({ content, score, time }) => {
+  return (
+    <div className="bg-slate-950 border border-rose-500/30 rounded-2xl overflow-hidden mb-8 shadow-2xl shadow-rose-900/20">
+      <div className="bg-rose-500/10 border-b border-rose-500/20 px-6 py-4 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+           <span className="relative flex h-3 w-3">
+              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+              <span className="relative inline-flex rounded-full h-3 w-3 bg-rose-500"></span>
+           </span>
+           <h3 className="text-lg font-bold text-white tracking-tight">Live Match Prediction Panel</h3>
+        </div>
+        <div className="font-mono font-bold text-rose-400 bg-rose-950/50 px-3 py-1 rounded border border-rose-500/30">
+          {time} • {score}
+        </div>
+      </div>
+      
+      <div className="p-6 grid grid-cols-1 md:grid-cols-3 gap-6">
+         <div className="md:col-span-2">
+            <h4 className="text-xs font-bold text-rose-400 uppercase tracking-wider mb-2 flex items-center gap-2">
+               <Zap className="w-4 h-4" /> Real-Time Analysis
+            </h4>
+            <p className="text-slate-300 leading-relaxed whitespace-pre-wrap text-sm">
+              {content || "Analyzing current momentum..."}
+            </p>
+         </div>
+         
+         <div className="bg-slate-900/50 rounded-xl p-4 border border-slate-800 flex flex-col justify-center items-center text-center">
+            <ArrowRightCircle className="w-8 h-8 text-rose-500 mb-2 animate-pulse" />
+            <div className="text-xs text-slate-500 uppercase font-bold tracking-wider mb-1">Next Goal Probability</div>
+            <div className="text-white font-bold text-sm">Calculating based on pressure...</div>
+         </div>
+      </div>
     </div>
   );
 };
@@ -389,7 +454,7 @@ const StrengthComparison: React.FC<{
 // --- Main Component ---
 
 export const AnalysisResult: React.FC<AnalysisResultProps> = ({ data, homeTeam, awayTeam, sport }) => {
-  const { scorePrediction, scoreProbability, totalGoals, corners, cards, weather, referee, redFlags, confidence, summary, recentForm, headToHead, keyFactors } = data.sections;
+  const { scorePrediction, scoreProbability, totalGoals, corners, cards, weather, referee, redFlags, confidence, summary, recentForm, headToHead, keyFactors, predictionLogic, liveAnalysis } = data.sections;
   const stats = data.stats;
   const liveState = data.liveState;
 
@@ -435,7 +500,8 @@ export const AnalysisResult: React.FC<AnalysisResultProps> = ({ data, homeTeam, 
       }
     };
 
-    const intervalId = setInterval(pollOdds, 45000);
+    // INCREASED INTERVAL TO 90 SECONDS TO PREVENT RATE LIMITING
+    const intervalId = setInterval(pollOdds, 90000);
     
     return () => clearInterval(intervalId);
   }, [homeTeam, awayTeam, sport]);
@@ -485,6 +551,15 @@ export const AnalysisResult: React.FC<AnalysisResultProps> = ({ data, homeTeam, 
       
       {/* Red Flag Alert */}
       {redFlags && <RiskAlert content={redFlags} />}
+      
+      {/* LIVE PREDICTION PANEL */}
+      {liveState?.isLive && (
+        <LivePredictionPanel 
+          content={liveAnalysis} 
+          score={liveState.currentScore} 
+          time={liveState.matchTime} 
+        />
+      )}
 
       {/* Scoreboard Card */}
       <div className="relative overflow-hidden bg-gradient-to-br from-slate-800 to-slate-900 rounded-3xl border border-slate-700 shadow-2xl shadow-black/40">
@@ -563,6 +638,9 @@ export const AnalysisResult: React.FC<AnalysisResultProps> = ({ data, homeTeam, 
           </div>
         </div>
       </div>
+      
+      {/* LOGIC BREAKDOWN */}
+      <ReasoningBreakdown content={predictionLogic} />
 
       {/* Charts Section */}
       {stats && (

@@ -5,7 +5,54 @@ import { MatchAnalysis, MatchFixture, MatchStats, SportType } from "../types";
 // Helper to initialize AI lazily to prevent top-level crashes
 const getAI = () => new GoogleGenAI({ apiKey: process.env.API_KEY });
 
+// --- CACHING SYSTEM ---
+const CACHE_PREFIX = 'mo_cache_';
+
+interface CacheItem<T> {
+  data: T;
+  timestamp: number;
+}
+
+const getCachedData = <T>(key: string, maxAgeMs: number): T | null => {
+  try {
+    const itemStr = sessionStorage.getItem(CACHE_PREFIX + key);
+    if (!itemStr) return null;
+    
+    const item: CacheItem<T> = JSON.parse(itemStr);
+    const now = Date.now();
+    
+    if (now - item.timestamp < maxAgeMs) {
+      return item.data;
+    }
+    
+    // Expired
+    sessionStorage.removeItem(CACHE_PREFIX + key);
+    return null;
+  } catch (e) {
+    return null;
+  }
+};
+
+const setCachedData = <T>(key: string, data: T) => {
+  try {
+    const item: CacheItem<T> = {
+      data,
+      timestamp: Date.now()
+    };
+    sessionStorage.setItem(CACHE_PREFIX + key, JSON.stringify(item));
+  } catch (e) {
+    // Storage likely full, ignore
+    console.warn("Cache storage full");
+  }
+};
+// ---------------------
+
 export const fetchTodaysMatches = async (sport: SportType = 'SOCCER'): Promise<MatchFixture[]> => {
+  // 1. Check Cache (30 minutes)
+  const cacheKey = `matches_${sport}_${new Date().toDateString()}`;
+  const cached = getCachedData<MatchFixture[]>(cacheKey, 30 * 60 * 1000);
+  if (cached) return cached;
+
   const ai = getAI();
   const modelId = "gemini-2.5-flash";
   const today = new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
@@ -19,8 +66,16 @@ export const fetchTodaysMatches = async (sport: SportType = 'SOCCER'): Promise<M
     3. If ${sport} is BASKETBALL, include NBA, EuroLeague, NCAA, or top domestic leagues.
     4. If ${sport} is HOCKEY, include NHL, KHL, SHL, etc.
     5. If ${sport} is HANDBALL, include EHF Champions League, Bundesliga, etc.
-    6. **MANDATORY**: Include matches from AFRICA (e.g., Nigeria NPFL, South Africa PSL, Ghana Premier, Egypt, Morocco, CAF Champions League) and ASIA (e.g., Japan J-League, Korea K-League, Saudi Pro, Thailand, Vietnam, Indonesia, India).
-    7. **INCLUDE LOWER LEAGUES**: Specifically look for 2nd/3rd divisions in England, Asia, and Africa.
+    6. **MANDATORY REGIONS**: Include matches from AFRICA (e.g., Nigeria NPFL, South Africa PSL, Ghana, Egypt) and ASIA (e.g., Japan J-League, Korea K-League, Indonesia Liga 1, Vietnam).
+    7. **SUPER LEAGUES PRIORITY**: You MUST include matches from any league named "Super League" or "Süper Lig" including:
+       - Turkey (Süper Lig)
+       - Switzerland (Swiss Super League)
+       - Greece (Super League Greece)
+       - China (Chinese Super League)
+       - India (Indian Super League)
+       - England (Women's Super League)
+       - Denmark (Superliga)
+    8. **INCLUDE LOWER LEAGUES**: Specifically look for 2nd/3rd divisions in England, Asia, and Africa.
     
     Aim for 15-20 fixtures to cover global timezones.
     
@@ -47,7 +102,6 @@ export const fetchTodaysMatches = async (sport: SportType = 'SOCCER'): Promise<M
       contents: prompt,
       config: {
         tools: [{ googleSearch: {} }],
-        // responseMimeType: "application/json", // Unsupported with googleSearch
       },
     });
 
@@ -57,7 +111,12 @@ export const fetchTodaysMatches = async (sport: SportType = 'SOCCER'): Promise<M
     const cleanText = jsonMatch ? jsonMatch[0] : text.replace(/```json/g, '').replace(/```/g, '').trim();
     
     const matches = JSON.parse(cleanText);
-    return matches.map((m: any) => ({ ...m, sport }));
+    const result = matches.map((m: any) => ({ ...m, sport }));
+    
+    // Save to Cache
+    setCachedData(cacheKey, result);
+    
+    return result;
   } catch (error) {
     console.error("Failed to fetch matches:", error);
     return [];
@@ -65,6 +124,11 @@ export const fetchTodaysMatches = async (sport: SportType = 'SOCCER'): Promise<M
 };
 
 export const fetchLiveOdds = async (homeTeam: string, awayTeam: string): Promise<{ homeWin: number; draw: number; awayWin: number } | undefined> => {
+  // 1. Check Cache (90 Seconds) - prevent API spam on polling
+  const cacheKey = `odds_${homeTeam}_${awayTeam}`;
+  const cached = getCachedData<{ homeWin: number; draw: number; awayWin: number }>(cacheKey, 90 * 1000);
+  if (cached) return cached;
+
   const ai = getAI();
   const modelId = "gemini-2.5-flash";
   const prompt = `
@@ -88,7 +152,6 @@ export const fetchLiveOdds = async (homeTeam: string, awayTeam: string): Promise
       contents: prompt,
       config: {
         tools: [{ googleSearch: {} }],
-        // responseMimeType: "application/json", // Unsupported with googleSearch
       },
     });
 
@@ -97,7 +160,12 @@ export const fetchLiveOdds = async (homeTeam: string, awayTeam: string): Promise
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     const cleanText = jsonMatch ? jsonMatch[0] : text.replace(/```json/g, '').replace(/```/g, '').trim();
     
-    return JSON.parse(cleanText);
+    const data = JSON.parse(cleanText);
+    
+    // Save to Cache
+    setCachedData(cacheKey, data);
+    
+    return data;
   } catch (error) {
     console.error("Failed to fetch live odds:", error);
     return undefined;
@@ -105,6 +173,11 @@ export const fetchLiveOdds = async (homeTeam: string, awayTeam: string): Promise
 };
 
 export const fetchTeamDetails = async (homeTeam: string, awayTeam: string, sport: SportType = 'SOCCER'): Promise<MatchStats['comparison'] | undefined> => {
+  // 1. Check Cache (24 Hours) - Team values/standings don't change often
+  const cacheKey = `details_${homeTeam}_${awayTeam}_${sport}`;
+  const cached = getCachedData<MatchStats['comparison']>(cacheKey, 24 * 60 * 60 * 1000);
+  if (cached) return cached;
+
   const ai = getAI();
   const modelId = "gemini-2.5-flash";
   
@@ -142,7 +215,6 @@ export const fetchTeamDetails = async (homeTeam: string, awayTeam: string, sport
       contents: prompt,
       config: {
         tools: [{ googleSearch: {} }],
-        // responseMimeType: "application/json", // Unsupported with googleSearch
       },
     });
 
@@ -151,7 +223,12 @@ export const fetchTeamDetails = async (homeTeam: string, awayTeam: string, sport
     const jsonMatch = text.match(/\{[\s\S]*\}/);
     const cleanText = jsonMatch ? jsonMatch[0] : text.replace(/```json/g, '').replace(/```/g, '').trim();
     
-    return JSON.parse(cleanText);
+    const data = JSON.parse(cleanText);
+
+    // Save to Cache
+    setCachedData(cacheKey, data);
+
+    return data;
   } catch (error) {
     console.error("Failed to fetch team details:", error);
     return undefined;
@@ -164,6 +241,9 @@ export const analyzeMatch = async (homeTeam: string, awayTeam: string, league?: 
   
   const context = league ? `in ${league}` : '';
   const isLive = !!liveState;
+
+  // NOTE: We generally DO NOT cache the main analysis because it's the core feature 
+  // and user expects fresh AI generation. However, logic prevents re-submitting same request if UI handles it.
 
   // Sport Specific Instructions
   let sportInstructions = '';
@@ -257,6 +337,11 @@ export const analyzeMatch = async (homeTeam: string, awayTeam: string, league?: 
          sportInstructions = `
            SPORT: SOCCER.
            
+           **SUPER LEAGUE SPECIFIC CONTEXT:**
+           - **Turkey (Süper Lig) / Greece:** EXTREME HOME ADVANTAGE. Crowd influence is huge. High card counts are common.
+           - **China / India (Super League):** Team strength relies heavily on "Foreign Star Players". Check if they are playing.
+           - **Switzerland / Denmark:** Often high-scoring leagues.
+
            **MANDATORY FOR LOWER LEAGUES (African/Asian/South American 2nd Div):**
            - If advanced stats (xG, Heatmaps) are missing, YOU MUST PREDICT based on:
              1. **League Standings**: Position differences.
@@ -297,6 +382,9 @@ export const analyzeMatch = async (homeTeam: string, awayTeam: string, league?: 
       4. **PREDICTION**: Predict the *rest of the match* outcome based on this live data.
       
       ${sportInstructions}
+      
+      ## Live Analysis
+      [Provide a tactical breakdown of the live game. Who is dominating momentum? Is a comeback likely? Who scores next?]
     `;
   } else {
     instructionPart = `
@@ -339,6 +427,11 @@ export const analyzeMatch = async (homeTeam: string, awayTeam: string, league?: 
     ## Summary
     [Concise verdict citing SPECIFIC DATA found]
     
+    ## Prediction Logic
+    [Step-by-step breakdown. List 3-4 key specific reasons that led to the exact score prediction. Format: "• [Factor]: [Impact] - [Specific Data Reference]"]
+
+    ${isLive ? "## Live Analysis\n[Momentum analysis and Next Goal probability]" : ""}
+
     ## Recent Form
     [Last 5 games summary]
     
@@ -416,7 +509,9 @@ const parseResponse = (text: string, groundingChunks: any[]): MatchAnalysis => {
     summary: '',
     recentForm: '',
     headToHead: '',
-    keyFactors: ''
+    keyFactors: '',
+    predictionLogic: '',
+    liveAnalysis: ''
   };
   
   let stats: MatchAnalysis['stats'] = undefined;
@@ -472,6 +567,8 @@ const parseResponse = (text: string, groundingChunks: any[]): MatchAnalysis => {
     if (checkAndSetSection('## Recent Form', 'recentForm')) return;
     if (checkAndSetSection('## Head-to-Head', 'headToHead')) return;
     if (checkAndSetSection('## Key Factors', 'keyFactors')) return;
+    if (checkAndSetSection('## Prediction Logic', 'predictionLogic')) return;
+    if (checkAndSetSection('## Live Analysis', 'liveAnalysis')) return;
 
     if (cleanLine.startsWith('##')) {
       currentSection = 'unknown';
