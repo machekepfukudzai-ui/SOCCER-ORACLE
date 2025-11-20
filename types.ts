@@ -1,4 +1,6 @@
 
+export type SportType = 'SOCCER' | 'BASKETBALL' | 'HOCKEY' | 'HANDBALL';
+
 export interface GroundingChunk {
   web?: {
     uri: string;
@@ -13,6 +15,12 @@ export interface MatchFixture {
   league: string;
   score?: string; // e.g., "1-0"
   status?: 'SCHEDULED' | 'LIVE' | 'FINISHED';
+  sport?: SportType;
+}
+
+export interface PlayerStat {
+  name: string;
+  stat: string; // e.g. "5 Goals in last 3 games"
 }
 
 export interface MatchStats {
@@ -33,6 +41,10 @@ export interface MatchStats {
     homeRating: number; // 0-100
     awayRating: number; // 0-100
   };
+  keyPlayers?: {
+    home: PlayerStat[];
+    away: PlayerStat[];
+  };
   homeLogo?: string;
   awayLogo?: string;
 }
@@ -51,9 +63,12 @@ export interface MatchAnalysis {
   sections: {
     scorePrediction?: string;
     scoreProbability?: string; // Estimated probability of the specific score
-    totalGoals?: string; // Now multi-line support for breakdown
-    corners?: string; // Now multi-line support for breakdown
-    cards?: string; // New section for booking/card predictions
+    totalGoals?: string; // Generic container for Primary Stat (Goals/Points)
+    corners?: string; // Generic container for Secondary Stat (Corners/Rebounds/Shots)
+    cards?: string; // Generic container for Tertiary Stat (Cards/Fouls/Penalties)
+    weather?: string; // New: Weather conditions
+    referee?: string; // New: Referee stats
+    redFlags?: string; // New section for integrity/referee warnings
     confidence?: string; // High, Medium, Low
     summary: string;
     recentForm: string;

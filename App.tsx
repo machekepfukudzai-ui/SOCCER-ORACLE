@@ -4,7 +4,7 @@ import { TeamInput } from './components/TeamInput';
 import { AnalysisResult } from './components/AnalysisResult';
 import { MatchList } from './components/MatchList';
 import { analyzeMatch, fetchTodaysMatches } from './services/geminiService';
-import { MatchAnalysis, MatchFixture, LoadingState } from './types';
+import { MatchAnalysis, MatchFixture, LoadingState, SportType } from './types';
 import { Radar } from 'lucide-react';
 
 const App: React.FC = () => {
@@ -13,14 +13,18 @@ const App: React.FC = () => {
   const [teams, setTeams] = useState<{home: string, away: string}>({ home: '', away: '' });
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   
+  // Sport State
+  const [currentSport, setCurrentSport] = useState<SportType>('SOCCER');
+
   // Live Match State
   const [todaysMatches, setTodaysMatches] = useState<MatchFixture[]>([]);
   const [loadingMatches, setLoadingMatches] = useState<boolean>(true);
 
   useEffect(() => {
     const loadMatches = async () => {
+      setLoadingMatches(true);
       try {
-        const matches = await fetchTodaysMatches();
+        const matches = await fetchTodaysMatches(currentSport);
         setTodaysMatches(matches);
       } catch (e) {
         console.error("Error fetching matches", e);
@@ -29,7 +33,7 @@ const App: React.FC = () => {
       }
     };
     loadMatches();
-  }, []);
+  }, [currentSport]);
 
   const handleAnalyze = async (home: string, away: string, league: string, liveState?: { score: string, time: string }) => {
     setLoadingState(LoadingState.ANALYZING);
@@ -41,7 +45,7 @@ const App: React.FC = () => {
     window.scrollTo({ top: 0, behavior: 'smooth' });
 
     try {
-      const result = await analyzeMatch(home, away, league, liveState);
+      const result = await analyzeMatch(home, away, league, liveState, currentSport);
       setAnalysisData(result);
       setLoadingState(LoadingState.COMPLETE);
     } catch (error) {
@@ -65,13 +69,13 @@ const App: React.FC = () => {
         <header className="text-center mb-12 space-y-4">
           <div className="inline-flex items-center justify-center space-x-3 bg-slate-800/50 backdrop-blur border border-slate-700 rounded-full px-4 py-1.5 mb-4">
              <Radar className="w-4 h-4 text-emerald-400" />
-             <span className="text-xs font-semibold text-emerald-400 tracking-wider uppercase">AI Powered Prediction</span>
+             <span className="text-xs font-semibold text-emerald-400 tracking-wider uppercase">AI Powered Multi-Sport Predictor</span>
           </div>
           <h1 className="text-4xl md:text-6xl font-black tracking-tight text-white">
             MatchOracle<span className="text-emerald-500">.ai</span>
           </h1>
           <p className="text-lg text-slate-400 max-w-2xl mx-auto">
-            Leverage artificial intelligence grounded in live data to compare head-to-head records, recent form, and squad strength for accurate match insights.
+            Advanced prediction engine for Soccer, Basketball, Hockey, and Handball. Analyzing physical factors like fatigue, injuries, and live momentum.
           </p>
         </header>
 
@@ -84,7 +88,12 @@ const App: React.FC = () => {
 
         {/* Input Section */}
         <div className="mb-16">
-          <TeamInput onAnalyze={(h, a, l) => handleAnalyze(h, a, l)} disabled={loadingState === LoadingState.ANALYZING} />
+          <TeamInput 
+            onAnalyze={(h, a, l) => handleAnalyze(h, a, l)} 
+            onSportChange={setCurrentSport}
+            currentSport={currentSport}
+            disabled={loadingState === LoadingState.ANALYZING} 
+          />
         </div>
 
         {/* Error Message */}
@@ -96,7 +105,12 @@ const App: React.FC = () => {
 
         {/* Results Section */}
         {loadingState === LoadingState.COMPLETE && analysisData && (
-          <AnalysisResult data={analysisData} homeTeam={teams.home} awayTeam={teams.away} />
+          <AnalysisResult 
+            data={analysisData} 
+            homeTeam={teams.home} 
+            awayTeam={teams.away} 
+            sport={currentSport}
+          />
         )}
         
         {/* Loading Indicator (Visual only, main logic in button) */}
@@ -106,7 +120,7 @@ const App: React.FC = () => {
               <div className="absolute inset-0 border-4 border-emerald-900 rounded-full"></div>
               <div className="absolute inset-0 border-4 border-emerald-500 rounded-full border-t-transparent animate-spin"></div>
             </div>
-            <p className="text-slate-400 animate-pulse font-medium">Scouting teams & checking live stats...</p>
+            <p className="text-slate-400 animate-pulse font-medium">Analyzing physical data & recent form...</p>
           </div>
         )}
 

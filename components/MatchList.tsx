@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { MatchFixture } from '../types';
-import { Play, Calendar, Trophy, ArrowRight } from 'lucide-react';
+import { Play, Calendar, Trophy, ArrowRight, Activity, Snowflake, Dribbble, Hand } from 'lucide-react';
 
 interface MatchListProps {
   matches: MatchFixture[];
@@ -10,12 +10,22 @@ interface MatchListProps {
 }
 
 export const MatchList: React.FC<MatchListProps> = ({ matches, onSelectMatch, isLoading }) => {
+  
+  const getSportIcon = (sport?: string) => {
+    switch(sport) {
+      case 'BASKETBALL': return <Dribbble className="w-3 h-3" />;
+      case 'HOCKEY': return <Snowflake className="w-3 h-3" />;
+      case 'HANDBALL': return <Hand className="w-3 h-3" />;
+      default: return <Activity className="w-3 h-3" />;
+    }
+  };
+
   if (isLoading) {
     return (
       <div className="w-full mb-10">
         <div className="flex items-center space-x-2 mb-4">
           <div className="h-2 w-2 bg-emerald-500 rounded-full animate-pulse"></div>
-          <h3 className="text-slate-400 text-sm font-semibold uppercase tracking-wider">Loading Today's Fixtures...</h3>
+          <h3 className="text-slate-400 text-sm font-semibold uppercase tracking-wider">Loading Fixtures...</h3>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {[1, 2, 3].map(i => (
@@ -52,7 +62,8 @@ export const MatchList: React.FC<MatchListProps> = ({ matches, onSelectMatch, is
             {/* Status Badge */}
             <div className="flex justify-between items-center mb-4">
               <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider flex items-center gap-1 bg-slate-900/50 px-2 py-1 rounded-md">
-                <Trophy className="w-3 h-3" /> {match.league}
+                {getSportIcon(match.sport)}
+                <Trophy className="w-3 h-3 ml-1" /> {match.league}
               </span>
               {match.status === 'LIVE' ? (
                 <span className="flex items-center space-x-1.5 bg-rose-500/20 text-rose-400 px-2 py-1 rounded-md border border-rose-500/20 text-[10px] font-bold">

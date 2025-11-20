@@ -1,13 +1,14 @@
 
 import React, { useState, useEffect } from 'react';
-import { MatchAnalysis } from '../types';
-import { TrendingUp, History, AlertTriangle, Activity, ExternalLink, CheckCircle2, Flag, Goal, Percent, BarChart3, Shield, Trophy, Users, Coins, RefreshCw, StickyNote, Timer, Radio } from 'lucide-react';
+import { MatchAnalysis, PlayerStat, SportType } from '../types';
+import { TrendingUp, History, AlertTriangle, Activity, ExternalLink, CheckCircle2, Flag, Goal, Percent, BarChart3, Shield, Trophy, Users, Coins, RefreshCw, StickyNote, Timer, Radio, User, Siren, Dribbble, Snowflake, Hand, GripHorizontal, CloudRain, Gavel } from 'lucide-react';
 import { fetchLiveOdds, fetchTeamDetails } from '../services/geminiService';
 
 interface AnalysisResultProps {
   data: MatchAnalysis;
   homeTeam: string;
   awayTeam: string;
+  sport: SportType;
 }
 
 const SectionCard: React.FC<{ title: string; icon: React.ReactNode; children: React.ReactNode; colorClass: string }> = ({ title, icon, children, colorClass }) => (
@@ -39,6 +40,24 @@ const StatCard: React.FC<{ label: string; value: string; icon: React.ReactNode; 
   </div>
 );
 
+const RiskAlert: React.FC<{ content: string }> = ({ content }) => {
+  if (!content || content.toLowerCase().includes('none') || content.length < 5) return null;
+
+  return (
+    <div className="w-full bg-red-500/10 border border-red-500/30 rounded-xl p-4 mb-6 animate-in fade-in slide-in-from-top-4 duration-500">
+      <div className="flex items-start space-x-3">
+        <div className="bg-red-500/20 p-2 rounded-lg mt-1">
+          <Siren className="w-5 h-5 text-red-400 animate-pulse" />
+        </div>
+        <div className="flex-1">
+          <h3 className="text-sm font-bold text-red-400 uppercase tracking-wider mb-1">Risk & Physical Factor Alert</h3>
+          <p className="text-sm text-slate-300 leading-relaxed whitespace-pre-wrap">{content}</p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const TeamLogo: React.FC<{ url?: string, name: string }> = ({ url, name }) => {
   const [error, setError] = useState(false);
 
@@ -65,7 +84,7 @@ const TeamLogo: React.FC<{ url?: string, name: string }> = ({ url, name }) => {
 
 // --- Chart Components ---
 
-const FormTrendChart: React.FC<{ homeData: number[]; awayData: number[]; homeTeam: string; awayTeam: string }> = ({ homeData, awayData, homeTeam, awayTeam }) => {
+const FormTrendChart: React.FC<{ homeData: number[]; awayData: number[]; homeTeam: string; awayTeam: string; sport: SportType }> = ({ homeData, awayData, homeTeam, awayTeam, sport }) => {
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null);
   const height = 100;
   const width = 300;
@@ -76,12 +95,15 @@ const FormTrendChart: React.FC<{ homeData: number[]; awayData: number[]; homeTea
   const safeHomeData = homeData && homeData.length > 0 ? homeData : [0,0,0,0,0];
   const safeAwayData = awayData && awayData.length > 0 ? awayData : [0,0,0,0,0];
 
-  const maxGoals = Math.max(...safeHomeData, ...safeAwayData, 3); // Ensure at least 3 for scale
+  // Dynamic max for scaling based on sport (e.g. Basketball > 100, Soccer > 3)
+  const maxVal = Math.max(...safeHomeData, ...safeAwayData, sport === 'BASKETBALL' ? 120 : 3); 
+  const minVal = sport === 'BASKETBALL' ? Math.min(...safeHomeData, ...safeAwayData) * 0.8 : 0;
   
   const getPoints = (data: number[]) => {
     return data.map((val, idx) => {
       const x = padding + (idx / (data.length - 1)) * chartW;
-      const y = height - padding - (val / maxGoals) * chartH;
+      const normalizedVal = (val - minVal) / (maxVal - minVal); // Normalize
+      const y = height - padding - (normalizedVal) * chartH;
       return `${x},${y}`;
     }).join(' ');
   };
@@ -126,7 +148,8 @@ const FormTrendChart: React.FC<{ homeData: number[]; awayData: number[]; homeTea
             {/* Interactive Dots Home */}
             {safeHomeData.map((val, idx) => {
                const x = padding + (idx / (safeHomeData.length - 1)) * chartW;
-               const y = height - padding - (val / maxGoals) * chartH;
+               const normalizedVal = (val - minVal) / (maxVal - minVal);
+               const y = height - padding - (normalizedVal) * chartH;
                return (
                  <g key={`h-${idx}`} onMouseEnter={() => setHoveredIndex(idx)} onMouseLeave={() => setHoveredIndex(null)} className="cursor-pointer group">
                    <circle cx={x} cy={y} r="4" fill="#10b981" className="group-hover:r-6 transition-all" />
@@ -140,7 +163,8 @@ const FormTrendChart: React.FC<{ homeData: number[]; awayData: number[]; homeTea
             {/* Interactive Dots Away */}
             {safeAwayData.map((val, idx) => {
                const x = padding + (idx / (safeAwayData.length - 1)) * chartW;
-               const y = height - padding - (val / maxGoals) * chartH;
+               const normalizedVal = (val - minVal) / (maxVal - minVal);
+               const y = height - padding - (normalizedVal) * chartH;
                return (
                  <g key={`a-${idx}`} onMouseEnter={() => setHoveredIndex(idx + 10)} onMouseLeave={() => setHoveredIndex(null)} className="cursor-pointer group">
                    <circle cx={x} cy={y} r="4" fill="#f43f5e" className="group-hover:r-6 transition-all" />
@@ -151,7 +175,7 @@ const FormTrendChart: React.FC<{ homeData: number[]; awayData: number[]; homeTea
                )
             })}
          </svg>
-         <div className="text-center text-[10px] text-slate-500 mt-1 uppercase tracking-wider">Goals Scored (Last 5 Games)</div>
+         <div className="text-center text-[10px] text-slate-500 mt-1 uppercase tracking-wider">{sport === 'BASKETBALL' ? 'Points Scored (Last 5)' : 'Goals Scored (Last 5)'}</div>
       </div>
     </div>
   );
@@ -162,7 +186,7 @@ const ProbabilityBar: React.FC<{ home: number; draw: number; away: number; homeT
     <div className="w-full space-y-2">
        <div className="flex justify-between text-xs font-semibold text-slate-400">
          <span>{homeTeam} Win</span>
-         <span>Draw</span>
+         {draw > 0 && <span>Draw</span>}
          <span>{awayTeam} Win</span>
        </div>
        <div className="w-full h-6 bg-slate-800 rounded-full overflow-hidden flex shadow-inner">
@@ -170,10 +194,12 @@ const ProbabilityBar: React.FC<{ home: number; draw: number; away: number; homeT
              <span className="text-[10px] font-bold text-emerald-950 px-1">{home}%</span>
              <div className="absolute bottom-full mb-1 hidden group-hover:block bg-slate-900 text-white text-xs py-1 px-2 rounded border border-slate-700 whitespace-nowrap">Home Win Probability</div>
           </div>
-          <div style={{ width: `${draw}%` }} className="bg-slate-600 h-full flex items-center justify-center relative group">
-             <span className="text-[10px] font-bold text-slate-200 px-1">{draw}%</span>
-             <div className="absolute bottom-full mb-1 hidden group-hover:block bg-slate-900 text-white text-xs py-1 px-2 rounded border border-slate-700 whitespace-nowrap">Draw Probability</div>
-          </div>
+          {draw > 0 && (
+            <div style={{ width: `${draw}%` }} className="bg-slate-600 h-full flex items-center justify-center relative group">
+               <span className="text-[10px] font-bold text-slate-200 px-1">{draw}%</span>
+               <div className="absolute bottom-full mb-1 hidden group-hover:block bg-slate-900 text-white text-xs py-1 px-2 rounded border border-slate-700 whitespace-nowrap">Draw Probability</div>
+            </div>
+          )}
           <div style={{ width: `${away}%` }} className="bg-rose-500 h-full flex items-center justify-center relative group">
              <span className="text-[10px] font-bold text-rose-950 px-1">{away}%</span>
              <div className="absolute bottom-full mb-1 hidden group-hover:block bg-slate-900 text-white text-xs py-1 px-2 rounded border border-slate-700 whitespace-nowrap">Away Win Probability</div>
@@ -215,7 +241,7 @@ const OddsDisplay: React.FC<{ odds: { homeWin: number; draw: number; awayWin: nu
              {isRefreshing ? (
                  <div className="w-12 h-4 bg-slate-700/50 rounded animate-pulse"></div>
              ) : (
-                 <div className="text-slate-200 font-bold font-mono text-sm">{odds.draw.toFixed(2)}</div>
+                 <div className="text-slate-200 font-bold font-mono text-sm">{odds.draw === 0 ? '-' : odds.draw.toFixed(2)}</div>
              )}
            </div>
         </div>
@@ -236,12 +262,12 @@ const OddsDisplay: React.FC<{ odds: { homeWin: number; draw: number; awayWin: nu
   );
 };
 
-const PossessionMeter: React.FC<{ home: number; away: number; homeTeam: string; awayTeam: string }> = ({ home, away, homeTeam, awayTeam }) => {
+const PossessionMeter: React.FC<{ home: number; away: number; homeTeam: string; awayTeam: string; sport: SportType }> = ({ home, away, homeTeam, awayTeam, sport }) => {
   return (
     <div className="space-y-2">
       <div className="flex justify-between text-xs text-slate-400 font-semibold">
         <span>{homeTeam}</span>
-        <span className="text-slate-500">Possession</span>
+        <span className="text-slate-500">{sport === 'SOCCER' ? 'Possession' : 'Win % Trend'}</span>
         <span>{awayTeam}</span>
       </div>
       <div className="flex items-center space-x-2">
@@ -260,8 +286,9 @@ const StrengthComparison: React.FC<{
   homeValue?: string, awayValue?: string, 
   homePosition?: string, awayPosition?: string,
   homeRating?: number, awayRating?: number,
+  keyPlayers?: { home: PlayerStat[], away: PlayerStat[] },
   homeTeam: string, awayTeam: string 
-}> = ({ homeValue, awayValue, homePosition, awayPosition, homeRating, awayRating, homeTeam, awayTeam }) => {
+}> = ({ homeValue, awayValue, homePosition, awayPosition, homeRating, awayRating, keyPlayers, homeTeam, awayTeam }) => {
   
   // Safe defaults
   const hRating = homeRating || 50;
@@ -294,30 +321,75 @@ const StrengthComparison: React.FC<{
       </div>
 
       {/* Grid Stats */}
-      <div className="grid grid-cols-2 gap-4 text-xs">
+      <div className="grid grid-cols-2 gap-4 text-xs pb-2">
         <div className="space-y-1">
-           <div className="text-slate-500 flex items-center gap-1"><Trophy className="w-3 h-3"/> League Pos.</div>
+           <div className="text-slate-500 flex items-center gap-1"><Trophy className="w-3 h-3"/> Standing/Rank</div>
            <div className="flex justify-between font-semibold">
               <span className="text-emerald-300">{homeTeam}: {homePosition || 'N/A'}</span>
               <span className="text-rose-300">{awayTeam}: {awayPosition || 'N/A'}</span>
            </div>
         </div>
         <div className="space-y-1">
-           <div className="text-slate-500 flex items-center gap-1"><Users className="w-3 h-3"/> Squad Value</div>
+           <div className="text-slate-500 flex items-center gap-1"><Users className="w-3 h-3"/> Value/Record</div>
            <div className="flex justify-between font-semibold">
               <span className="text-emerald-300">{homeValue || 'N/A'}</span>
               <span className="text-rose-300">{awayValue || 'N/A'}</span>
            </div>
         </div>
       </div>
+
+      {/* Key Players Section */}
+      {keyPlayers && (
+        <div className="mt-2 pt-4 border-t border-slate-800">
+          <h5 className="text-[10px] font-bold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-1">
+             <User className="w-3 h-3" /> Key Impact Players
+          </h5>
+          <div className="grid grid-cols-2 gap-4">
+            {/* Home Players */}
+            <div>
+               <div className="text-xs font-bold text-emerald-400 mb-2">{homeTeam}</div>
+               <div className="space-y-2">
+                 {keyPlayers.home?.map((p, i) => (
+                   <div key={i} className="bg-slate-800/60 rounded-lg p-2 border border-slate-700/50 flex items-start gap-2">
+                      <div className="bg-emerald-500/10 p-1 rounded-full mt-0.5">
+                         <User className="w-3 h-3 text-emerald-400" />
+                      </div>
+                      <div className="min-w-0">
+                         <div className="text-xs font-bold text-slate-200 truncate">{p.name}</div>
+                         <div className="text-[10px] text-slate-500 leading-tight">{p.stat}</div>
+                      </div>
+                   </div>
+                 ))}
+               </div>
+            </div>
+            {/* Away Players */}
+            <div>
+               <div className="text-xs font-bold text-rose-400 mb-2">{awayTeam}</div>
+               <div className="space-y-2">
+                 {keyPlayers.away?.map((p, i) => (
+                   <div key={i} className="bg-slate-800/60 rounded-lg p-2 border border-slate-700/50 flex items-start gap-2">
+                      <div className="bg-rose-500/10 p-1 rounded-full mt-0.5">
+                         <User className="w-3 h-3 text-rose-400" />
+                      </div>
+                      <div className="min-w-0">
+                         <div className="text-xs font-bold text-slate-200 truncate">{p.name}</div>
+                         <div className="text-[10px] text-slate-500 leading-tight">{p.stat}</div>
+                      </div>
+                   </div>
+                 ))}
+               </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
 // --- Main Component ---
 
-export const AnalysisResult: React.FC<AnalysisResultProps> = ({ data, homeTeam, awayTeam }) => {
-  const { scorePrediction, scoreProbability, totalGoals, corners, cards, confidence, summary, recentForm, headToHead, keyFactors } = data.sections;
+export const AnalysisResult: React.FC<AnalysisResultProps> = ({ data, homeTeam, awayTeam, sport }) => {
+  const { scorePrediction, scoreProbability, totalGoals, corners, cards, weather, referee, redFlags, confidence, summary, recentForm, headToHead, keyFactors } = data.sections;
   const stats = data.stats;
   const liveState = data.liveState;
 
@@ -337,9 +409,8 @@ export const AnalysisResult: React.FC<AnalysisResultProps> = ({ data, homeTeam, 
   // Poll for live odds and fetch details
   useEffect(() => {
     const fetchDynamicData = async () => {
-      // 1. Fetch detailed team stats immediately if missing or to refresh
       try {
-        const details = await fetchTeamDetails(homeTeam, awayTeam);
+        const details = await fetchTeamDetails(homeTeam, awayTeam, sport);
         if (details) {
           setComparison(prev => ({ ...prev, ...details }));
         }
@@ -350,7 +421,6 @@ export const AnalysisResult: React.FC<AnalysisResultProps> = ({ data, homeTeam, 
     
     fetchDynamicData();
 
-    // 2. Poll Odds Periodically
     const pollOdds = async () => {
       setIsRefreshingOdds(true);
       try {
@@ -365,11 +435,10 @@ export const AnalysisResult: React.FC<AnalysisResultProps> = ({ data, homeTeam, 
       }
     };
 
-    // Start polling interval
     const intervalId = setInterval(pollOdds, 45000);
     
     return () => clearInterval(intervalId);
-  }, [homeTeam, awayTeam]);
+  }, [homeTeam, awayTeam, sport]);
 
   const getConfidenceColor = (level?: string) => {
     const l = level?.toLowerCase() || '';
@@ -379,9 +448,44 @@ export const AnalysisResult: React.FC<AnalysisResultProps> = ({ data, homeTeam, 
     return 'text-slate-400 bg-slate-500/10 border-slate-500/20';
   };
 
+  // --- Sport Specific Helper ---
+  const getStatLabels = () => {
+    switch(sport) {
+      case 'BASKETBALL':
+        return {
+          main: { label: "Total Points", icon: <Dribbble /> },
+          sec: { label: "Rebounds / 3-Pointers", icon: <Activity /> },
+          ter: { label: "Turnovers / Fouls", icon: <GripHorizontal /> }
+        };
+      case 'HOCKEY':
+        return {
+          main: { label: "Total Goals", icon: <Goal /> },
+          sec: { label: "Shots on Goal", icon: <Snowflake /> },
+          ter: { label: "Penalties", icon: <StickyNote /> }
+        };
+      case 'HANDBALL':
+        return {
+          main: { label: "Total Goals", icon: <Goal /> },
+          sec: { label: "Fast Breaks / 7m", icon: <Hand /> },
+          ter: { label: "Suspensions (2min)", icon: <StickyNote /> }
+        };
+      default:
+        return {
+          main: { label: "Total Goals", icon: <Goal /> },
+          sec: { label: "Corners", icon: <Flag /> },
+          ter: { label: "Cards", icon: <StickyNote /> }
+        };
+    }
+  }
+  
+  const statConfig = getStatLabels();
+
   return (
     <div className="w-full max-w-5xl mx-auto space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-12">
       
+      {/* Red Flag Alert */}
+      {redFlags && <RiskAlert content={redFlags} />}
+
       {/* Scoreboard Card */}
       <div className="relative overflow-hidden bg-gradient-to-br from-slate-800 to-slate-900 rounded-3xl border border-slate-700 shadow-2xl shadow-black/40">
         {/* Background Pattern */}
@@ -393,14 +497,15 @@ export const AnalysisResult: React.FC<AnalysisResultProps> = ({ data, homeTeam, 
           {liveState?.isLive && (
              <div className="absolute top-6 right-6 flex items-center space-x-2 bg-rose-500/20 text-rose-400 px-3 py-1 rounded-full border border-rose-500/20 animate-pulse">
                <Radio className="w-4 h-4" />
-               <span className="text-xs font-bold tracking-wider uppercase">In-Play Analysis ({liveState.matchTime})</span>
+               <span className="text-xs font-bold tracking-wider uppercase">In-Play ({liveState.matchTime})</span>
              </div>
           )}
 
           <div className="flex items-center space-x-3">
              <span className={`px-4 py-1.5 rounded-full text-xs font-bold uppercase tracking-widest border shadow-sm ${getConfidenceColor(confidence)}`}>
-              {confidence || 'AI'} Confidence Prediction
+              {confidence || 'AI'} Confidence
              </span>
+             <span className="text-xs font-mono text-slate-500 uppercase bg-slate-900/50 px-2 py-1 rounded">{sport}</span>
           </div>
 
           <div className="flex flex-col md:flex-row items-center justify-center gap-8 md:gap-16 w-full">
@@ -415,7 +520,7 @@ export const AnalysisResult: React.FC<AnalysisResultProps> = ({ data, homeTeam, 
               {/* Live Score Display if active */}
               {liveState?.isLive && (
                 <div className="mb-4 pb-4 border-b border-slate-700/50 w-full flex flex-col items-center">
-                   <div className="text-lg text-slate-400 uppercase font-bold text-[10px] tracking-widest mb-1">Current Score</div>
+                   <div className="text-lg text-slate-400 uppercase font-bold text-[10px] tracking-widest mb-1">Current</div>
                    <div className="text-3xl font-mono text-white">{liveState.currentScore}</div>
                 </div>
               )}
@@ -424,7 +529,7 @@ export const AnalysisResult: React.FC<AnalysisResultProps> = ({ data, homeTeam, 
                 {scorePrediction || "- : -"}
               </div>
               <span className="text-xs text-emerald-400 mt-3 uppercase tracking-widest font-bold">
-                 {liveState?.isLive ? "Predicted Final Score" : "Projected Score"}
+                 {liveState?.isLive ? "Predicted Final" : "Projected Score"}
               </span>
               
               {scoreProbability && (
@@ -442,7 +547,6 @@ export const AnalysisResult: React.FC<AnalysisResultProps> = ({ data, homeTeam, 
             </div>
           </div>
           
-          {/* Summary Card - Enhanced for Live */}
           <div className="max-w-3xl mx-auto text-center bg-slate-800/50 rounded-xl p-4 border border-slate-700/50 relative overflow-hidden">
              {liveState?.isLive && (
                 <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-transparent via-rose-500 to-transparent opacity-50"></div>
@@ -454,19 +558,19 @@ export const AnalysisResult: React.FC<AnalysisResultProps> = ({ data, homeTeam, 
                </div>
              )}
              <p className="text-slate-200 text-lg leading-relaxed font-medium">
-               "{summary || "Analysis complete. Check detailed stats below."}"
+               "{summary || "Analysis complete."}"
              </p>
           </div>
         </div>
       </div>
 
-      {/* Charts Section - Only visible if stats data exists */}
+      {/* Charts Section */}
       {stats && (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
           <div className="bg-slate-800/40 border border-slate-700/50 rounded-xl p-6">
              <div className="flex items-center space-x-2 mb-6 text-blue-400">
                <BarChart3 className="w-5 h-5" />
-               <h3 className="font-semibold tracking-wide">Match Probabilities & Odds</h3>
+               <h3 className="font-semibold tracking-wide">Win Probability & Market</h3>
              </div>
              <div className="space-y-6">
                 <ProbabilityBar 
@@ -476,17 +580,13 @@ export const AnalysisResult: React.FC<AnalysisResultProps> = ({ data, homeTeam, 
                   homeTeam={homeTeam}
                   awayTeam={awayTeam}
                 />
-                
-                {/* Live Odds Display */}
-                {odds && (
-                  <OddsDisplay odds={odds} isRefreshing={isRefreshingOdds} />
-                )}
-
+                {odds && <OddsDisplay odds={odds} isRefreshing={isRefreshingOdds} />}
                 <PossessionMeter 
                   home={stats.possession.home} 
                   away={stats.possession.away} 
                   homeTeam={homeTeam}
                   awayTeam={awayTeam}
+                  sport={sport}
                 />
              </div>
           </div>
@@ -494,42 +594,71 @@ export const AnalysisResult: React.FC<AnalysisResultProps> = ({ data, homeTeam, 
           <div className="bg-slate-800/40 border border-slate-700/50 rounded-xl p-6">
              <div className="flex items-center space-x-2 mb-6 text-purple-400">
                <Activity className="w-5 h-5" />
-               <h3 className="font-semibold tracking-wide">Recent Goal Scoring Form</h3>
+               <h3 className="font-semibold tracking-wide">Recent Scoring Trend</h3>
              </div>
              <FormTrendChart 
                homeData={stats.homeLast5Goals} 
                awayData={stats.awayLast5Goals} 
                homeTeam={homeTeam}
                awayTeam={awayTeam}
+               sport={sport}
              />
           </div>
         </div>
       )}
 
-      {/* Key Metrics Grid - Updated to 3 columns to include Cards */}
+      {/* Key Metrics Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         <StatCard 
-          label={liveState?.isLive ? "Remaining Goals Forecast" : "Total Goals Forecast"}
+          label={liveState?.isLive ? "Rest of Game" : statConfig.main.label}
           value={totalGoals || "Calculating..."} 
-          icon={<Goal />} 
+          icon={statConfig.main.icon} 
           color="text-emerald-400"
           accentColor="text-emerald-500"
         />
         <StatCard 
-          label="Corner Kicks Forecast" 
+          label={statConfig.sec.label} 
           value={corners || "Calculating..."} 
-          icon={<Flag />} 
+          icon={statConfig.sec.icon} 
           color="text-amber-400"
           accentColor="text-amber-500"
         />
         <StatCard 
-          label="Cards / Bookings" 
+          label={statConfig.ter.label} 
           value={cards || "Calculating..."} 
-          icon={<StickyNote />} 
+          icon={statConfig.ter.icon} 
           color="text-rose-400"
           accentColor="text-rose-500"
         />
       </div>
+      
+      {/* New Granular Conditions Grid (Weather/Referee) */}
+      {(weather || referee) && (
+         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {weather && (
+               <div className="bg-slate-800/40 border border-slate-700/50 rounded-xl p-4 flex items-center space-x-4">
+                  <div className="bg-blue-500/10 p-3 rounded-full">
+                     <CloudRain className="w-6 h-6 text-blue-400" />
+                  </div>
+                  <div>
+                     <div className="text-xs text-slate-400 uppercase font-bold tracking-wider">Forecast / Conditions</div>
+                     <div className="text-sm text-white font-semibold">{weather}</div>
+                  </div>
+               </div>
+            )}
+            {referee && (
+               <div className="bg-slate-800/40 border border-slate-700/50 rounded-xl p-4 flex items-center space-x-4">
+                  <div className="bg-amber-500/10 p-3 rounded-full">
+                     <Gavel className="w-6 h-6 text-amber-400" />
+                  </div>
+                  <div>
+                     <div className="text-xs text-slate-400 uppercase font-bold tracking-wider">Referee Stats</div>
+                     <div className="text-sm text-white font-semibold">{referee}</div>
+                  </div>
+               </div>
+            )}
+         </div>
+      )}
 
       {/* Detailed Analysis Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
@@ -550,12 +679,11 @@ export const AnalysisResult: React.FC<AnalysisResultProps> = ({ data, homeTeam, 
         </SectionCard>
 
         <SectionCard 
-          title={liveState?.isLive ? "Live Game Factors" : "Key Factors & Team Strength"}
+          title={liveState?.isLive ? "Live Factors" : "Key Physical Factors"}
           icon={liveState?.isLive ? <Timer className="w-5 h-5" /> : <AlertTriangle className="w-5 h-5" />}
           colorClass={liveState?.isLive ? "text-rose-400" : "text-amber-400"}
         >
-          {/* Inject Strength Comparison Chart if data is available */}
-          {(comparison || stats?.comparison) && (
+          {(comparison || stats?.comparison || stats?.keyPlayers) && (
             <StrengthComparison 
               homeValue={comparison?.homeValue || stats?.comparison?.homeValue}
               awayValue={comparison?.awayValue || stats?.comparison?.awayValue}
@@ -563,6 +691,7 @@ export const AnalysisResult: React.FC<AnalysisResultProps> = ({ data, homeTeam, 
               awayPosition={comparison?.awayPosition || stats?.comparison?.awayPosition}
               homeRating={comparison?.homeRating || stats?.comparison?.homeRating}
               awayRating={comparison?.awayRating || stats?.comparison?.awayRating}
+              keyPlayers={stats?.keyPlayers}
               homeTeam={homeTeam}
               awayTeam={awayTeam}
             />
@@ -576,7 +705,7 @@ export const AnalysisResult: React.FC<AnalysisResultProps> = ({ data, homeTeam, 
           colorClass="text-emerald-400"
         >
           <p className="text-slate-400 mb-3">
-            This prediction is generated by analyzing live search results including team performance averages, historical match-ups, and current squad availability.
+            Prediction generated using live search results for {sport.toLowerCase()}, analyzing physical metrics, form, and roster availability.
           </p>
           <div className="flex items-center space-x-2 text-emerald-400 text-sm font-bold bg-emerald-900/20 p-2 rounded-lg w-fit">
             <CheckCircle2 className="w-4 h-4" />
