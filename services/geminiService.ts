@@ -126,8 +126,12 @@ export const fetchTodaysMatches = async (sport: SportType = 'SOCCER'): Promise<M
     const modelId = "gemini-2.5-flash";
     
     const prompt = `
-      List 15 major ${sport} matches for today/tomorrow.
-      INCLUDE: Major Leagues, Asian/African Leagues, Lower Divisions.
+      List 15-20 diverse ${sport} matches for today/tomorrow from around the world.
+      MANDATORY MIX:
+      - Lower Divisions (e.g., England League 1/2, Italy Serie B/C, Spain Segunda, Germany 2. Bundesliga/3. Liga).
+      - Global/Regional Leagues (e.g., J2 League, K-League 2, Brazil Serie B, Argentina Primera Nacional, Indian I-League, Indonesia Liga 2).
+      - Major Leagues (Premier League, La Liga, etc.).
+      
       EXCLUDE: Cyber, Esports, Simulated.
       FORMAT: JSON Array [{ "home": "A", "away": "B", "time": "HH:MM", "league": "L", "status": "SCHEDULED" }]
     `;
@@ -152,12 +156,13 @@ export const fetchTodaysMatches = async (sport: SportType = 'SOCCER'): Promise<M
   } catch (error) {
     console.warn("API Error, returning backup matches.");
     return [
+        { home: "Portsmouth", away: "Derby", time: "15:00", league: "League One", status: "SCHEDULED", sport },
+        { home: "Sunderland", away: "Middlesbrough", time: "12:30", league: "Championship", status: "SCHEDULED", sport },
+        { home: "Santos", away: "Guarani", time: "22:00", league: "Brasileirão Série B", status: "SCHEDULED", sport },
+        { home: "Hamburg", away: "St. Pauli", time: "18:30", league: "2. Bundesliga", status: "SCHEDULED", sport },
         { home: "Man City", away: "Liverpool", time: "20:00", league: "Premier League", status: "SCHEDULED", sport },
+        { home: "Yokohama FC", away: "Tokushima", time: "11:00", league: "J2 League", status: "SCHEDULED", sport },
         { home: "Real Madrid", away: "Barcelona", time: "21:00", league: "La Liga", status: "SCHEDULED", sport },
-        { home: "Bayern", away: "Dortmund", time: "18:30", league: "Bundesliga", status: "SCHEDULED", sport },
-        { home: "Juventus", away: "Milan", time: "19:45", league: "Serie A", status: "SCHEDULED", sport },
-        { home: "PSG", away: "Lyon", time: "21:00", league: "Ligue 1", status: "SCHEDULED", sport },
-        { home: "Ajax", away: "Feyenoord", time: "14:30", league: "Eredivisie", status: "SCHEDULED", sport },
     ];
   }
 };
@@ -243,6 +248,7 @@ export const analyzeMatch = async (homeTeam: string, awayTeam: string, league?: 
       ${isLive ? `LIVE MATCH: Score ${liveState?.score} Time ${liveState?.time}. Focus: Momentum, Next Goal.` : 'PRE-MATCH: Focus Form, H2H.'}
       ${sportCtx}
       
+      CONTEXT: Global Lower Divisions included. If advanced stats (xG) are missing, rely on League Standings, Home/Away Records, and Recent Form.
       STRICTLY EXCLUDE CYBER/ESPORTS/SIMULATION. REAL MATCHES ONLY.
       
       OUTPUT FORMAT:
