@@ -19,8 +19,10 @@ export const fetchTodaysMatches = async (sport: SportType = 'SOCCER'): Promise<M
     3. If ${sport} is BASKETBALL, include NBA, EuroLeague, NCAA, or top domestic leagues.
     4. If ${sport} is HOCKEY, include NHL, KHL, SHL, etc.
     5. If ${sport} is HANDBALL, include EHF Champions League, Bundesliga, etc.
+    6. **MANDATORY**: Include matches from AFRICA (e.g., Nigeria NPFL, South Africa PSL, Ghana Premier, Egypt, Morocco, CAF Champions League) and ASIA (e.g., Japan J-League, Korea K-League, Saudi Pro, Thailand, Vietnam, Indonesia, India).
+    7. **INCLUDE LOWER LEAGUES**: Specifically look for 2nd/3rd divisions in England, Asia, and Africa.
     
-    Aim for 12-15 fixtures.
+    Aim for 15-20 fixtures to cover global timezones.
     
     Return a strictly formatted JSON array.
     
@@ -45,12 +47,15 @@ export const fetchTodaysMatches = async (sport: SportType = 'SOCCER'): Promise<M
       contents: prompt,
       config: {
         tools: [{ googleSearch: {} }],
-        responseMimeType: "application/json",
+        // responseMimeType: "application/json", // Unsupported with googleSearch
       },
     });
 
     const text = response.text || "[]";
-    const cleanText = text.replace(/```json/g, '').replace(/```/g, '').trim();
+    // Extract JSON array from potential markdown
+    const jsonMatch = text.match(/\[[\s\S]*\]/);
+    const cleanText = jsonMatch ? jsonMatch[0] : text.replace(/```json/g, '').replace(/```/g, '').trim();
+    
     const matches = JSON.parse(cleanText);
     return matches.map((m: any) => ({ ...m, sport }));
   } catch (error) {
@@ -83,12 +88,15 @@ export const fetchLiveOdds = async (homeTeam: string, awayTeam: string): Promise
       contents: prompt,
       config: {
         tools: [{ googleSearch: {} }],
-        responseMimeType: "application/json",
+        // responseMimeType: "application/json", // Unsupported with googleSearch
       },
     });
 
     const text = response.text || "{}";
-    const cleanText = text.replace(/```json/g, '').replace(/```/g, '').trim();
+    // Extract JSON object from potential markdown
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    const cleanText = jsonMatch ? jsonMatch[0] : text.replace(/```json/g, '').replace(/```/g, '').trim();
+    
     return JSON.parse(cleanText);
   } catch (error) {
     console.error("Failed to fetch live odds:", error);
@@ -134,12 +142,15 @@ export const fetchTeamDetails = async (homeTeam: string, awayTeam: string, sport
       contents: prompt,
       config: {
         tools: [{ googleSearch: {} }],
-        responseMimeType: "application/json",
+        // responseMimeType: "application/json", // Unsupported with googleSearch
       },
     });
 
     const text = response.text || "{}";
-    const cleanText = text.replace(/```json/g, '').replace(/```/g, '').trim();
+    // Extract JSON object from potential markdown
+    const jsonMatch = text.match(/\{[\s\S]*\}/);
+    const cleanText = jsonMatch ? jsonMatch[0] : text.replace(/```json/g, '').replace(/```/g, '').trim();
+    
     return JSON.parse(cleanText);
   } catch (error) {
     console.error("Failed to fetch team details:", error);
@@ -245,10 +256,18 @@ export const analyzeMatch = async (homeTeam: string, awayTeam: string, league?: 
       } else {
          sportInstructions = `
            SPORT: SOCCER.
-           GRANULAR PHYSICAL FACTORS (MUST AFFECT PREDICTION):
+           
+           **MANDATORY FOR LOWER LEAGUES (African/Asian/South American 2nd Div):**
+           - If advanced stats (xG, Heatmaps) are missing, YOU MUST PREDICT based on:
+             1. **League Standings**: Position differences.
+             2. **Recent Form**: Last 5 games (W-D-L).
+             3. **Goal Difference**: Home Attack vs Away Defense.
+           - Do NOT refuse to predict due to "lack of data". Use available basic metrics.
+
+           GRANULAR PHYSICAL FACTORS (For Major Leagues):
            1. **Weather**: Search for forecast at stadium. Heavy rain/wind? (Affects passing/goals).
            2. **Referee**: Identify the referee. Are they strict? (Avg Cards per game > 4.5?).
-           3. **Injuries**: CONFIRM key missing players (Top scorer, Captain, Main GK).
+           3. **Injuries**: CONFIRM key missing players.
          `;
       }
       outputTemplate = `
@@ -293,7 +312,7 @@ export const analyzeMatch = async (homeTeam: string, awayTeam: string, league?: 
     ${instructionPart}
     
     GOAL: HIGH PRECISION PREDICTION.
-    REQUIRED: You MUST cite specific numbers found in search results (e.g. "xG is 1.2 vs 0.4", "Ref Avg 4.2 cards", "Rain forecasted").
+    REQUIRED: You MUST cite specific numbers found in search results (e.g. "xG is 1.2 vs 0.4", "Ref Avg 4.2 cards", "Rain forecasted", "5th vs 12th in table").
     Do NOT be vague.
     
     OUTPUT FORMAT STRICTLY:

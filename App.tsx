@@ -3,11 +3,14 @@ import React, { useState, useEffect } from 'react';
 import { TeamInput } from './components/TeamInput';
 import { AnalysisResult } from './components/AnalysisResult';
 import { MatchList } from './components/MatchList';
+import { LoginScreen } from './components/LoginScreen';
 import { analyzeMatch, fetchTodaysMatches } from './services/geminiService';
-import { MatchAnalysis, MatchFixture, LoadingState, SportType } from './types';
-import { Radar } from 'lucide-react';
+import { authService } from './services/authService';
+import { MatchAnalysis, MatchFixture, LoadingState, SportType, User } from './types';
+import { Radar, LogOut, User as UserIcon } from 'lucide-react';
 
 const App: React.FC = () => {
+  const [user, setUser] = useState<User | null>(null);
   const [loadingState, setLoadingState] = useState<LoadingState>(LoadingState.IDLE);
   const [analysisData, setAnalysisData] = useState<MatchAnalysis | null>(null);
   const [teams, setTeams] = useState<{home: string, away: string}>({ home: '', away: '' });
@@ -20,20 +23,41 @@ const App: React.FC = () => {
   const [todaysMatches, setTodaysMatches] = useState<MatchFixture[]>([]);
   const [loadingMatches, setLoadingMatches] = useState<boolean>(true);
 
+  // Check for existing session on mount
   useEffect(() => {
-    const loadMatches = async () => {
-      setLoadingMatches(true);
-      try {
-        const matches = await fetchTodaysMatches(currentSport);
-        setTodaysMatches(matches);
-      } catch (e) {
-        console.error("Error fetching matches", e);
-      } finally {
-        setLoadingMatches(false);
-      }
-    };
-    loadMatches();
-  }, [currentSport]);
+    const storedUser = authService.getCurrentUser();
+    if (storedUser) {
+      setUser(storedUser);
+    }
+  }, []);
+
+  useEffect(() => {
+    if (user) {
+      const loadMatches = async () => {
+        setLoadingMatches(true);
+        try {
+          const matches = await fetchTodaysMatches(currentSport);
+          setTodaysMatches(matches);
+        } catch (e) {
+          console.error("Error fetching matches", e);
+        } finally {
+          setLoadingMatches(false);
+        }
+      };
+      loadMatches();
+    }
+  }, [currentSport, user]);
+
+  const handleLoginSuccess = (loggedInUser: User) => {
+    setUser(loggedInUser);
+  };
+
+  const handleLogout = () => {
+    authService.logout();
+    setUser(null);
+    setAnalysisData(null);
+    setLoadingState(LoadingState.IDLE);
+  };
 
   const handleAnalyze = async (home: string, away: string, league: string, liveState?: { score: string, time: string }) => {
     setLoadingState(LoadingState.ANALYZING);
@@ -55,6 +79,11 @@ const App: React.FC = () => {
     }
   };
 
+  // Authentication Gate
+  if (!user) {
+    return <LoginScreen onLoginSuccess={handleLoginSuccess} />;
+  }
+
   return (
     <div className="min-h-screen bg-[#0f172a] text-slate-200 selection:bg-emerald-500/30 selection:text-emerald-200">
       {/* Background Accents */}
@@ -63,21 +92,51 @@ const App: React.FC = () => {
         <div className="absolute top-[40%] -right-[10%] w-[40%] h-[40%] bg-blue-900/10 rounded-full blur-[100px]"></div>
       </div>
 
-      <div className="relative z-10 container mx-auto px-4 py-12 max-w-6xl">
+      <div className="relative z-10 container mx-auto px-4 py-8 max-w-6xl">
         
-        {/* Header */}
-        <header className="text-center mb-12 space-y-4">
-          <div className="inline-flex items-center justify-center space-x-3 bg-slate-800/50 backdrop-blur border border-slate-700 rounded-full px-4 py-1.5 mb-4">
-             <Radar className="w-4 h-4 text-emerald-400" />
-             <span className="text-xs font-semibold text-emerald-400 tracking-wider uppercase">AI Powered Multi-Sport Predictor</span>
+        {/* Navigation Bar */}
+        <nav className="flex flex-col md:flex-row items-center justify-between mb-12 bg-slate-800/50 backdrop-blur border border-slate-700 rounded-2xl p-4 shadow-lg">
+          <div className="flex items-center space-x-3 mb-4 md:mb-0">
+             <div className="p-2 bg-emerald-500/10 rounded-lg border border-emerald-500/20">
+                <Radar className="w-6 h-6 text-emerald-400" />
+             </div>
+             <div>
+                <h1 className="text-xl font-black tracking-tight text-white leading-none">
+                  MatchOracle<span className="text-emerald-500">.ai</span>
+                </h1>
+                <span className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Premium Edition</span>
+             </div>
           </div>
-          <h1 className="text-4xl md:text-6xl font-black tracking-tight text-white">
-            MatchOracle<span className="text-emerald-500">.ai</span>
-          </h1>
-          <p className="text-lg text-slate-400 max-w-2xl mx-auto">
-            Advanced prediction engine for Soccer, Basketball, Hockey, and Handball. Analyzing physical factors like fatigue, injuries, and live momentum.
-          </p>
-        </header>
+
+          <div className="flex items-center space-x-4">
+             <div className="flex items-center space-x-2 px-3 py-1.5 bg-slate-900/50 rounded-full border border-slate-700/50">
+               <div className="w-6 h-6 rounded-full bg-indigo-500 flex items-center justify-center text-[10px] font-bold text-white">
+                 {user.name.charAt(0).toUpperCase()}
+               </div>
+               <span className="text-xs text-slate-300 font-medium pr-1">Welcome, {user.name.split(' ')[0]}</span>
+             </div>
+             
+             <button 
+               onClick={handleLogout}
+               className="flex items-center space-x-2 text-xs font-bold text-slate-400 hover:text-rose-400 transition-colors px-3 py-2 rounded-lg hover:bg-rose-500/10"
+             >
+               <LogOut className="w-4 h-4" />
+               <span>Sign Out</span>
+             </button>
+          </div>
+        </nav>
+
+        {/* Intro Content */}
+        {loadingState === LoadingState.IDLE && !analysisData && (
+          <div className="text-center mb-12 space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-700">
+            <h2 className="text-3xl md:text-5xl font-bold text-white">
+              Predict the <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400">Unpredictable</span>
+            </h2>
+            <p className="text-lg text-slate-400 max-w-2xl mx-auto">
+              Select a live match below or search manually to generate AI-powered predictions powered by real-time data grounding.
+            </p>
+          </div>
+        )}
 
         {/* Match List (Real-time/Today) */}
         <MatchList 
@@ -113,7 +172,7 @@ const App: React.FC = () => {
           />
         )}
         
-        {/* Loading Indicator (Visual only, main logic in button) */}
+        {/* Loading Indicator */}
         {loadingState === LoadingState.ANALYZING && (
           <div className="flex flex-col items-center justify-center space-y-4 py-12">
             <div className="relative w-16 h-16">
@@ -124,7 +183,7 @@ const App: React.FC = () => {
           </div>
         )}
 
-        <footer className="mt-24 text-center text-slate-600 text-sm">
+        <footer className="mt-24 text-center text-slate-600 text-sm pb-8">
           <p>&copy; {new Date().getFullYear()} MatchOracle AI. Data sourced via Google Search Grounding.</p>
           <p className="mt-2 text-xs opacity-60">Predictions are estimates. Please use responsibly.</p>
         </footer>

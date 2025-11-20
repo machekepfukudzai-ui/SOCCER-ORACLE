@@ -1,6 +1,12 @@
 
 export type SportType = 'SOCCER' | 'BASKETBALL' | 'HOCKEY' | 'HANDBALL';
 
+export interface User {
+  id: string;
+  name: string;
+  email: string;
+}
+
 export interface GroundingChunk {
   web?: {
     uri: string;
