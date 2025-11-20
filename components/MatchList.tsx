@@ -1,16 +1,18 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import { MatchFixture, SportType } from '../types';
-import { Play, Calendar, Trophy, ArrowRight, Activity, Snowflake, Dribbble, Hand, RefreshCw, Check, Filter, X } from 'lucide-react';
+import { Play, Calendar, Trophy, ArrowRight, Activity, Snowflake, Dribbble, Hand, RefreshCw, Check, Filter, X, ChevronLeft, ChevronRight } from 'lucide-react';
 
 interface MatchListProps {
   matches: MatchFixture[];
   onSelectMatch: (home: string, away: string, league: string, liveState?: { score: string, time: string }) => void;
   onRefresh?: () => void;
   isLoading: boolean;
+  selectedDate: string;
+  onDateChange: (date: string) => void;
 }
 
-export const MatchList: React.FC<MatchListProps> = ({ matches, onSelectMatch, onRefresh, isLoading }) => {
+export const MatchList: React.FC<MatchListProps> = ({ matches, onSelectMatch, onRefresh, isLoading, selectedDate, onDateChange }) => {
   const [showSuccess, setShowSuccess] = useState(false);
 
   // Filter States
@@ -30,6 +32,19 @@ export const MatchList: React.FC<MatchListProps> = ({ matches, onSelectMatch, on
       onRefresh();
       setShowSuccess(true);
     }
+  };
+
+  const changeDate = (offset: number) => {
+    const date = new Date(selectedDate);
+    date.setDate(date.getDate() + offset);
+    onDateChange(date.toISOString().split('T')[0]);
+  };
+
+  const formatDateDisplay = (dateStr: string) => {
+    if (!dateStr) return 'Today';
+    // Append time to avoid timezone shift issues when parsing YYYY-MM-DD
+    const date = new Date(dateStr + 'T12:00:00');
+    return date.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
   };
   
   const getSportIcon = (sport?: string) => {
@@ -96,22 +111,58 @@ export const MatchList: React.FC<MatchListProps> = ({ matches, onSelectMatch, on
 
   return (
     <div className="w-full mb-12 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
-        <div className="flex items-center space-x-2">
-          <Calendar className="w-4 h-4 text-emerald-400" />
-          <h3 className="text-slate-200 text-sm font-semibold uppercase tracking-wider">Today's Matches</h3>
+      
+      {/* Controls Header */}
+      <div className="flex flex-col gap-6 mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center space-x-2">
+            <Trophy className="w-5 h-5 text-emerald-400" />
+            <h3 className="text-slate-200 text-lg font-bold uppercase tracking-wide">Fixtures</h3>
+          </div>
+
+          {/* Date Navigator */}
+          <div className="flex items-center self-start sm:self-auto bg-slate-800 border border-slate-700 p-1 rounded-lg shadow-sm">
+            <button 
+              onClick={() => changeDate(-1)} 
+              className="p-1.5 hover:bg-slate-700 rounded text-slate-400 hover:text-white transition-colors"
+              title="Previous Day"
+            >
+              <ChevronLeft className="w-5 h-5" />
+            </button>
+            
+            <div className="relative px-4 py-1 min-w-[140px] text-center group cursor-pointer">
+               <input 
+                  type="date" 
+                  value={selectedDate} 
+                  onChange={(e) => onDateChange(e.target.value)}
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+               />
+               <div className="flex items-center justify-center gap-2 group-hover:text-emerald-400 transition-colors">
+                  <Calendar className="w-4 h-4 text-emerald-500" />
+                  <span className="text-sm font-bold text-white">{formatDateDisplay(selectedDate)}</span>
+               </div>
+            </div>
+
+            <button 
+              onClick={() => changeDate(1)} 
+              className="p-1.5 hover:bg-slate-700 rounded text-slate-400 hover:text-white transition-colors"
+              title="Next Day"
+            >
+              <ChevronRight className="w-5 h-5" />
+            </button>
+          </div>
         </div>
         
         <div className="flex flex-wrap items-center gap-3">
            {/* Filters */}
-           <div className="flex items-center gap-2 bg-slate-800/50 p-1 rounded-lg border border-slate-700/50 overflow-x-auto max-w-full">
+           <div className="flex items-center gap-2 bg-slate-800/50 p-1 rounded-lg border border-slate-700/50 overflow-x-auto max-w-full scrollbar-hide">
               <Filter className="w-3 h-3 text-slate-500 ml-2" />
               
               {/* Status Filter */}
               <select 
                 value={filterStatus}
                 onChange={(e) => setFilterStatus(e.target.value)}
-                className="bg-transparent text-xs text-slate-300 font-medium py-1 px-2 outline-none cursor-pointer hover:text-white border-r border-slate-700/50"
+                className="bg-transparent text-xs text-slate-300 font-medium py-1.5 px-2 outline-none cursor-pointer hover:text-white border-r border-slate-700/50"
               >
                 <option value="ALL">All Status</option>
                 <option value="LIVE">Live Now</option>
@@ -122,7 +173,7 @@ export const MatchList: React.FC<MatchListProps> = ({ matches, onSelectMatch, on
               <select 
                 value={filterSport}
                 onChange={(e) => setFilterSport(e.target.value)}
-                className="bg-transparent text-xs text-slate-300 font-medium py-1 px-2 outline-none cursor-pointer hover:text-white border-r border-slate-700/50"
+                className="bg-transparent text-xs text-slate-300 font-medium py-1.5 px-2 outline-none cursor-pointer hover:text-white border-r border-slate-700/50"
               >
                 <option value="ALL">All Sports</option>
                 {uniqueSports.map(s => (
@@ -134,7 +185,7 @@ export const MatchList: React.FC<MatchListProps> = ({ matches, onSelectMatch, on
               <select 
                 value={filterLeague}
                 onChange={(e) => setFilterLeague(e.target.value)}
-                className="bg-transparent text-xs text-slate-300 font-medium py-1 px-2 outline-none cursor-pointer hover:text-white max-w-[120px]"
+                className="bg-transparent text-xs text-slate-300 font-medium py-1.5 px-2 outline-none cursor-pointer hover:text-white max-w-[140px] truncate"
               >
                 <option value="ALL">All Leagues</option>
                 {uniqueLeagues.map(l => (
@@ -151,12 +202,12 @@ export const MatchList: React.FC<MatchListProps> = ({ matches, onSelectMatch, on
 
            <div className="h-4 w-px bg-slate-700 hidden md:block"></div>
 
-           {showSuccess && <span className="text-xs text-emerald-400 animate-in fade-in">Updated!</span>}
+           {showSuccess && <span className="text-xs text-emerald-400 animate-in fade-in font-bold">Refreshed!</span>}
            {onRefresh && (
              <button 
                onClick={handleRefresh} 
                disabled={isLoading}
-               className="p-1.5 rounded-lg bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 transition-all disabled:opacity-50 flex items-center justify-center"
+               className="p-2 rounded-lg bg-slate-800 text-slate-400 hover:text-white hover:bg-slate-700 transition-all disabled:opacity-50 flex items-center justify-center border border-slate-700"
                title="Refresh Fixtures"
              >
                {isLoading ? <RefreshCw className="w-4 h-4 animate-spin text-emerald-500" /> : <RefreshCw className="w-4 h-4" />}
@@ -166,15 +217,20 @@ export const MatchList: React.FC<MatchListProps> = ({ matches, onSelectMatch, on
       </div>
       
       {filteredMatches.length === 0 ? (
-        <div className="bg-slate-800/30 border border-slate-800 rounded-xl p-8 text-center text-slate-500">
-           <p className="mb-2">No matches found matching your filters.</p>
+        <div className="bg-slate-800/30 border border-slate-800 rounded-xl p-12 text-center">
+           <div className="bg-slate-800 w-12 h-12 rounded-full flex items-center justify-center mx-auto mb-4">
+              <Calendar className="w-6 h-6 text-slate-500" />
+           </div>
+           <p className="text-slate-400 font-medium mb-2">No matches found for {formatDateDisplay(selectedDate)}.</p>
+           <p className="text-xs text-slate-500 mb-4">Try changing the filters or selecting a different date.</p>
+           
            {hasActiveFilters ? (
-             <button onClick={resetFilters} className="text-sm text-emerald-400 hover:underline">
+             <button onClick={resetFilters} className="text-sm bg-slate-800 hover:bg-slate-700 text-emerald-400 px-4 py-2 rounded-lg transition-colors">
                Clear Filters
              </button>
            ) : onRefresh && (
-             <button onClick={handleRefresh} className="text-sm text-emerald-400 hover:underline">
-               Try Refreshing
+             <button onClick={handleRefresh} className="text-sm bg-slate-800 hover:bg-slate-700 text-emerald-400 px-4 py-2 rounded-lg transition-colors">
+               Refresh Data
              </button>
            )}
         </div>

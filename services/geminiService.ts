@@ -1,3 +1,4 @@
+
 import { GoogleGenAI } from "@google/genai";
 import { MatchAnalysis, MatchFixture, MatchStats, SportType } from "../types";
 
@@ -91,11 +92,11 @@ const generateOfflinePrediction = (home: string, away: string, sport: SportType,
       referee: "Standard Official",
       redFlags: "OFFLINE_MODE", // Marker for UI
       confidence: "Medium (Historical Estimate)",
-      summary: `Due to high server traffic, this is an estimated prediction based on historical strength ratings for ${home} and ${away}. Actual API analysis will return shortly.`,
+      summary: `Network unavailable. This is an estimated prediction based on historical strength ratings for ${home} and ${away}. Connect to the internet for live AI analysis.`,
       recentForm: `${home}: W-D-W-L-W\n${away}: L-W-D-W-L`,
       headToHead: "Matches between these sides are typically competitive.",
       keyFactors: "Home Advantage\nSquad Depth\nHistorical Performance",
-      predictionLogic: "1. Server Load High -> Switched to Offline Model.\n2. Calculated relative team strength.\n3. Applied home advantage factor.",
+      predictionLogic: "1. Offline Mode Active -> Switched to Offline Model.\n2. Calculated relative team strength.\n3. Applied home advantage factor.",
       liveAnalysis: liveState ? "Momentum swings expected as match progresses." : "",
       nextGoal: liveState ? (hScore > aScore ? home : away) : "N/A",
       liveTip: "Consider In-Play Value"
@@ -111,10 +112,58 @@ const generateOfflinePrediction = (home: string, away: string, sport: SportType,
   };
 };
 
+// Helper to return backup matches for offline/error states
+const getBackupMatches = (sport: SportType): MatchFixture[] => {
+    if (sport === 'BASKETBALL') {
+        return [
+          { home: "Lakers", away: "Warriors", time: "19:00", league: "NBA", status: "SCHEDULED", sport },
+          { home: "Real Madrid", away: "Barcelona", time: "20:00", league: "EuroLeague", status: "SCHEDULED", sport },
+          { home: "Panathinaikos", away: "Olympiacos", time: "18:00", league: "Greek A1", status: "SCHEDULED", sport },
+        ];
+    }
+    if (sport === 'HOCKEY') {
+         return [
+          { home: "Maple Leafs", away: "Canadiens", time: "19:00", league: "NHL", status: "SCHEDULED", sport },
+          { home: "Frolunda", away: "Färjestad", time: "18:00", league: "SHL", status: "SCHEDULED", sport },
+        ];
+    }
+    if (sport === 'HANDBALL') {
+        return [
+            { home: "Barcelona", away: "Kiel", time: "19:00", league: "Champions League", status: "SCHEDULED", sport },
+        ];
+    }
+    // Default Soccer (Global Mix)
+    return [
+        // Europe
+        { home: "Man City", away: "Liverpool", time: "20:00", league: "Premier League", status: "SCHEDULED", sport },
+        { home: "Portsmouth", away: "Derby", time: "15:00", league: "League One", status: "SCHEDULED", sport },
+        { home: "Hamburg", away: "St. Pauli", time: "18:30", league: "2. Bundesliga", status: "SCHEDULED", sport },
+        { home: "Fenerbahce", away: "Galatasaray", time: "19:00", league: "Süper Lig", status: "SCHEDULED", sport },
+        // South America
+        { home: "Santos", away: "Guarani", time: "22:00", league: "Brasileirão Série B", status: "SCHEDULED", sport },
+        { home: "Boca Juniors", away: "River Plate", time: "21:00", league: "Argentine Primera", status: "SCHEDULED", sport },
+        // Asia
+        { home: "Yokohama FC", away: "Tokushima", time: "11:00", league: "J2 League", status: "SCHEDULED", sport },
+        { home: "Persija Jakarta", away: "Persib Bandung", time: "15:30", league: "Indonesia Liga 1", status: "SCHEDULED", sport },
+        { home: "Mohun Bagan", away: "East Bengal", time: "19:30", league: "Indian ISL", status: "SCHEDULED", sport },
+        // Africa
+        { home: "Al Ahly", away: "Zamalek", time: "18:00", league: "Egyptian Premier", status: "SCHEDULED", sport },
+        { home: "Mamelodi Sundowns", away: "Orlando Pirates", time: "15:00", league: "SA PSL", status: "SCHEDULED", sport },
+    ];
+};
+
 // ---------------------
 
-export const fetchTodaysMatches = async (sport: SportType = 'SOCCER'): Promise<MatchFixture[]> => {
-  const cacheKey = `matches_${sport}_${new Date().toDateString()}`;
+export const fetchTodaysMatches = async (sport: SportType = 'SOCCER', date?: string): Promise<MatchFixture[]> => {
+  const targetDate = date || new Date().toISOString().split('T')[0];
+  const cacheKey = `matches_${sport}_${targetDate}`;
+  
+  // Offline Check
+  if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      console.warn("Device offline: Returning backup matches.");
+      return getBackupMatches(sport);
+  }
+
   try {
     const cached = getCachedData<MatchFixture[]>(cacheKey, 30 * 60 * 1000);
     if (cached) return cached;
@@ -125,11 +174,11 @@ export const fetchTodaysMatches = async (sport: SportType = 'SOCCER'): Promise<M
     const modelId = "gemini-2.5-flash";
     
     const prompt = `
-      List 20-25 diverse ${sport} matches for today/tomorrow from around the world.
+      List 20-25 diverse ${sport} matches scheduled for ${targetDate} from around the world.
       MANDATORY GLOBAL MIX (Big & Small Leagues):
       - EUROPE: Major (EPL, La Liga, Serie A, Bundesliga) AND Lower/Small (Championship, League 1/2, Serie B/C, Segunda, 2. Bundesliga, Eredivisie, Primeira Liga, Belgium Pro League, Swiss Super League, Turkey Super Lig).
       - ASIA: Major (J1, K1, Saudi Pro) AND Lower/Small (J2, K2, Thai League, V-League, Indian ISL/I-League, Indonesia Liga 1/2, Malaysia Super League).
-      - AFRICA: Major (CAF CL, NPFL, PSL, Egyptian Premier) AND Small (Ghana Premier, Kenya Premier, Morocco Botola, Tanzania Ligi Kuu).
+      - AFRICA: Major (CAF CL, NPFL, PSL, Egyptian Premier) AND Small (Ghana Premier, Morocco Botola, Tanzania Ligi Kuu).
       - SOUTH AMERICA: Major (Brasileirão A, Argentine Primera) AND Lower (Brasileirão B, Primera Nacional, Colombia A, Chile A, Peru Liga 1).
       
       EXCLUDE: Cyber, Esports, Simulated.
@@ -155,27 +204,14 @@ export const fetchTodaysMatches = async (sport: SportType = 'SOCCER'): Promise<M
 
   } catch (error) {
     console.warn("API Error, returning backup matches.");
-    return [
-        // Europe
-        { home: "Man City", away: "Liverpool", time: "20:00", league: "Premier League", status: "SCHEDULED", sport },
-        { home: "Portsmouth", away: "Derby", time: "15:00", league: "League One", status: "SCHEDULED", sport },
-        { home: "Hamburg", away: "St. Pauli", time: "18:30", league: "2. Bundesliga", status: "SCHEDULED", sport },
-        { home: "Fenerbahce", away: "Galatasaray", time: "19:00", league: "Süper Lig", status: "SCHEDULED", sport },
-        // South America
-        { home: "Santos", away: "Guarani", time: "22:00", league: "Brasileirão Série B", status: "SCHEDULED", sport },
-        { home: "Boca Juniors", away: "River Plate", time: "21:00", league: "Argentine Primera", status: "SCHEDULED", sport },
-        // Asia
-        { home: "Yokohama FC", away: "Tokushima", time: "11:00", league: "J2 League", status: "SCHEDULED", sport },
-        { home: "Persija Jakarta", away: "Persib Bandung", time: "15:30", league: "Indonesia Liga 1", status: "SCHEDULED", sport },
-        { home: "Mohun Bagan", away: "East Bengal", time: "19:30", league: "Indian ISL", status: "SCHEDULED", sport },
-        // Africa
-        { home: "Al Ahly", away: "Zamalek", time: "18:00", league: "Egyptian Premier", status: "SCHEDULED", sport },
-        { home: "Mamelodi Sundowns", away: "Orlando Pirates", time: "15:00", league: "SA PSL", status: "SCHEDULED", sport },
-    ];
+    return getBackupMatches(sport);
   }
 };
 
 export const fetchLiveOdds = async (homeTeam: string, awayTeam: string): Promise<{ homeWin: number; draw: number; awayWin: number } | undefined> => {
+  // Offline Check
+  if (typeof navigator !== 'undefined' && !navigator.onLine) return undefined;
+
   const cacheKey = `odds_${homeTeam}_${awayTeam}`;
   try {
     const cached = getCachedData<{ homeWin: number; draw: number; awayWin: number }>(cacheKey, 90 * 1000);
@@ -199,6 +235,9 @@ export const fetchLiveOdds = async (homeTeam: string, awayTeam: string): Promise
 };
 
 export const fetchTeamDetails = async (homeTeam: string, awayTeam: string, sport: SportType = 'SOCCER'): Promise<MatchStats['comparison'] | undefined> => {
+  // Offline Check
+  if (typeof navigator !== 'undefined' && !navigator.onLine) return undefined;
+
   const cacheKey = `details_${homeTeam}_${awayTeam}_${sport}`;
   try {
     const cached = getCachedData<MatchStats['comparison']>(cacheKey, 24 * 60 * 60 * 1000);
@@ -222,6 +261,12 @@ export const fetchTeamDetails = async (homeTeam: string, awayTeam: string, sport
 };
 
 export const analyzeMatch = async (homeTeam: string, awayTeam: string, league?: string, liveState?: { score: string, time: string }, sport: SportType = 'SOCCER'): Promise<MatchAnalysis> => {
+  // Offline Check
+  if (typeof navigator !== 'undefined' && !navigator.onLine) {
+      console.warn("Device offline: Using Smart Offline Predictor");
+      return generateOfflinePrediction(homeTeam, awayTeam, sport, liveState);
+  }
+
   try {
     if (!homeTeam || !awayTeam) throw new Error("Teams required");
 

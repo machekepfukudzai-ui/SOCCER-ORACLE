@@ -5,7 +5,7 @@ import { AnalysisResult } from './components/AnalysisResult';
 import { MatchList } from './components/MatchList';
 import { analyzeMatch, fetchTodaysMatches } from './services/geminiService';
 import { MatchAnalysis, MatchFixture, LoadingState, SportType } from './types';
-import { Radar, RefreshCw } from 'lucide-react';
+import { Radar, RefreshCw, WifiOff } from 'lucide-react';
 
 const App: React.FC = () => {
   const [loadingState, setLoadingState] = useState<LoadingState>(LoadingState.IDLE);
@@ -13,17 +13,40 @@ const App: React.FC = () => {
   const [teams, setTeams] = useState<{home: string, away: string, league: string}>({ home: '', away: '', league: '' });
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   
+  // Connectivity State
+  const [isOnline, setIsOnline] = useState<boolean>(typeof navigator !== 'undefined' ? navigator.onLine : true);
+
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true);
+    const handleOffline = () => setIsOnline(false);
+    window.addEventListener('online', handleOnline);
+    window.addEventListener('offline', handleOffline);
+    return () => {
+      window.removeEventListener('online', handleOnline);
+      window.removeEventListener('offline', handleOffline);
+    };
+  }, []);
+  
   // Sport State
   const [currentSport, setCurrentSport] = useState<SportType>('SOCCER');
 
-  // Live Match State
+  // Date State (Default to local today YYYY-MM-DD)
+  const [matchDate, setMatchDate] = useState<string>(() => {
+    const d = new Date();
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  });
+
+  // Match List State
   const [todaysMatches, setTodaysMatches] = useState<MatchFixture[]>([]);
   const [loadingMatches, setLoadingMatches] = useState<boolean>(true);
 
   const loadMatches = async () => {
     setLoadingMatches(true);
     try {
-      const matches = await fetchTodaysMatches(currentSport);
+      const matches = await fetchTodaysMatches(currentSport, matchDate);
       setTodaysMatches(matches);
     } catch (e) {
       console.error("Error fetching matches", e);
@@ -34,7 +57,7 @@ const App: React.FC = () => {
 
   useEffect(() => {
     loadMatches();
-  }, [currentSport]);
+  }, [currentSport, matchDate, isOnline]); // Reload if connectivity changes
 
   const handleAnalyze = async (home: string, away: string, league: string, liveState?: { score: string, time: string }) => {
     setLoadingState(LoadingState.ANALYZING);
@@ -74,6 +97,16 @@ const App: React.FC = () => {
 
       <div className="relative z-10 container mx-auto px-4 py-8 max-w-6xl">
         
+        {/* Offline Banner */}
+        {!isOnline && (
+          <div className="bg-slate-800 border border-slate-700 text-slate-300 px-4 py-3 rounded-xl mb-6 flex items-center justify-center space-x-3 shadow-lg animate-in fade-in slide-in-from-top-4">
+            <div className="bg-slate-700 p-1.5 rounded-full">
+              <WifiOff className="w-4 h-4 text-slate-400" />
+            </div>
+            <span className="text-sm font-medium">You are currently offline. The app is running in <strong>Offline Estimation Mode</strong>.</span>
+          </div>
+        )}
+
         {/* Navigation Bar */}
         <nav className="flex flex-col md:flex-row items-center justify-between mb-12 bg-slate-800/50 backdrop-blur border border-slate-700 rounded-2xl p-4 shadow-lg">
           <div className="flex items-center space-x-3 mb-4 md:mb-0">
@@ -96,7 +129,7 @@ const App: React.FC = () => {
               Predict the <span className="text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-cyan-400">Unpredictable</span>
             </h2>
             <p className="text-lg text-slate-400 max-w-2xl mx-auto">
-              Select a live match below or search manually to generate AI-powered predictions grounded in real-time data.
+              Select a match below or search manually to generate AI-powered predictions grounded in live data.
             </p>
           </div>
         )}
@@ -107,6 +140,8 @@ const App: React.FC = () => {
           isLoading={loadingMatches} 
           onSelectMatch={handleAnalyze} 
           onRefresh={loadMatches}
+          selectedDate={matchDate}
+          onDateChange={setMatchDate}
         />
 
         {/* Input Section */}
@@ -150,7 +185,9 @@ const App: React.FC = () => {
               <div className="absolute inset-0 border-4 border-emerald-900 rounded-full"></div>
               <div className="absolute inset-0 border-4 border-emerald-500 rounded-full border-t-transparent animate-spin"></div>
             </div>
-            <p className="text-slate-400 animate-pulse font-medium">Analyzing live physical data & form...</p>
+            <p className="text-slate-400 animate-pulse font-medium">
+              {isOnline ? "Analyzing live physical data & form..." : "Generating offline strength estimation..."}
+            </p>
           </div>
         )}
 
