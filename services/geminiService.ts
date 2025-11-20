@@ -1,4 +1,3 @@
-
 import { GoogleGenAI } from "@google/genai";
 import { MatchAnalysis, MatchFixture, MatchStats, SportType } from "../types";
 
@@ -126,11 +125,12 @@ export const fetchTodaysMatches = async (sport: SportType = 'SOCCER'): Promise<M
     const modelId = "gemini-2.5-flash";
     
     const prompt = `
-      List 15-20 diverse ${sport} matches for today/tomorrow from around the world.
-      MANDATORY MIX:
-      - Lower Divisions (e.g., England League 1/2, Italy Serie B/C, Spain Segunda, Germany 2. Bundesliga/3. Liga).
-      - Global/Regional Leagues (e.g., J2 League, K-League 2, Brazil Serie B, Argentina Primera Nacional, Indian I-League, Indonesia Liga 2).
-      - Major Leagues (Premier League, La Liga, etc.).
+      List 20-25 diverse ${sport} matches for today/tomorrow from around the world.
+      MANDATORY GLOBAL MIX (Big & Small Leagues):
+      - EUROPE: Major (EPL, La Liga, Serie A, Bundesliga) AND Lower/Small (Championship, League 1/2, Serie B/C, Segunda, 2. Bundesliga, Eredivisie, Primeira Liga, Belgium Pro League, Swiss Super League, Turkey Super Lig).
+      - ASIA: Major (J1, K1, Saudi Pro) AND Lower/Small (J2, K2, Thai League, V-League, Indian ISL/I-League, Indonesia Liga 1/2, Malaysia Super League).
+      - AFRICA: Major (CAF CL, NPFL, PSL, Egyptian Premier) AND Small (Ghana Premier, Kenya Premier, Morocco Botola, Tanzania Ligi Kuu).
+      - SOUTH AMERICA: Major (Brasileirão A, Argentine Primera) AND Lower (Brasileirão B, Primera Nacional, Colombia A, Chile A, Peru Liga 1).
       
       EXCLUDE: Cyber, Esports, Simulated.
       FORMAT: JSON Array [{ "home": "A", "away": "B", "time": "HH:MM", "league": "L", "status": "SCHEDULED" }]
@@ -156,13 +156,21 @@ export const fetchTodaysMatches = async (sport: SportType = 'SOCCER'): Promise<M
   } catch (error) {
     console.warn("API Error, returning backup matches.");
     return [
-        { home: "Portsmouth", away: "Derby", time: "15:00", league: "League One", status: "SCHEDULED", sport },
-        { home: "Sunderland", away: "Middlesbrough", time: "12:30", league: "Championship", status: "SCHEDULED", sport },
-        { home: "Santos", away: "Guarani", time: "22:00", league: "Brasileirão Série B", status: "SCHEDULED", sport },
-        { home: "Hamburg", away: "St. Pauli", time: "18:30", league: "2. Bundesliga", status: "SCHEDULED", sport },
+        // Europe
         { home: "Man City", away: "Liverpool", time: "20:00", league: "Premier League", status: "SCHEDULED", sport },
+        { home: "Portsmouth", away: "Derby", time: "15:00", league: "League One", status: "SCHEDULED", sport },
+        { home: "Hamburg", away: "St. Pauli", time: "18:30", league: "2. Bundesliga", status: "SCHEDULED", sport },
+        { home: "Fenerbahce", away: "Galatasaray", time: "19:00", league: "Süper Lig", status: "SCHEDULED", sport },
+        // South America
+        { home: "Santos", away: "Guarani", time: "22:00", league: "Brasileirão Série B", status: "SCHEDULED", sport },
+        { home: "Boca Juniors", away: "River Plate", time: "21:00", league: "Argentine Primera", status: "SCHEDULED", sport },
+        // Asia
         { home: "Yokohama FC", away: "Tokushima", time: "11:00", league: "J2 League", status: "SCHEDULED", sport },
-        { home: "Real Madrid", away: "Barcelona", time: "21:00", league: "La Liga", status: "SCHEDULED", sport },
+        { home: "Persija Jakarta", away: "Persib Bandung", time: "15:30", league: "Indonesia Liga 1", status: "SCHEDULED", sport },
+        { home: "Mohun Bagan", away: "East Bengal", time: "19:30", league: "Indian ISL", status: "SCHEDULED", sport },
+        // Africa
+        { home: "Al Ahly", away: "Zamalek", time: "18:00", league: "Egyptian Premier", status: "SCHEDULED", sport },
+        { home: "Mamelodi Sundowns", away: "Orlando Pirates", time: "15:00", league: "SA PSL", status: "SCHEDULED", sport },
     ];
   }
 };
@@ -238,7 +246,7 @@ export const analyzeMatch = async (homeTeam: string, awayTeam: string, league?: 
             outputTpl = '## Total Goals\n[Over/Under]\n## Key Stat\n[7m]';
             break;
         default: 
-            sportCtx = 'Stats: Goals, Corners, Cards. Context: Weather, Referees.'; 
+            sportCtx = 'Stats: Goals, Corners, Cards. Context: Weather, Referees, Global Leagues (Europe, Asia, Africa, SA).'; 
             outputTpl = '## Total Goals\n[O/U]\n## Corners\n[Count]\n## Cards\n[Count]';
             break;
     }
@@ -248,7 +256,11 @@ export const analyzeMatch = async (homeTeam: string, awayTeam: string, league?: 
       ${isLive ? `LIVE MATCH: Score ${liveState?.score} Time ${liveState?.time}. Focus: Momentum, Next Goal.` : 'PRE-MATCH: Focus Form, H2H.'}
       ${sportCtx}
       
-      CONTEXT: Global Lower Divisions included. If advanced stats (xG) are missing, rely on League Standings, Home/Away Records, and Recent Form.
+      CONTEXT: 
+      - Supports ALL GLOBAL LEAGUES (EPL, La Liga, Serie B, J2 League, NPFL, Brasileirão B, Indonesian Liga 1, etc.).
+      - If advanced stats (xG) are missing for lower leagues, rely on League Standings, Home/Away Records, and Recent Form.
+      - Factor in: Travel fatigue (Asia/SA), Pitch conditions (Lower leagues), Home crowd hostility (Turkey, Greece, Indonesia).
+      
       STRICTLY EXCLUDE CYBER/ESPORTS/SIMULATION. REAL MATCHES ONLY.
       
       OUTPUT FORMAT:
